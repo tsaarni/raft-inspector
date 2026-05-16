@@ -24,7 +24,7 @@ func main() {
 
 	root := &cobra.Command{
 		Use:   "raft-inspector",
-		Short: "Inspect OpenBao/Vault raft storage",
+		Short: "Inspect OpenBao raft storage",
 	}
 	root.PersistentFlags().IntVar(&maxValueLen, "max-value-length", 256, "Max bytes of decrypted value to display (0=unlimited)")
 

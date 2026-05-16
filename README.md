@@ -3,7 +3,7 @@
 > [!NOTE]
 > This codebase is LLM-generated.
 
-Developer tool for offline inspection of OpenBao/Vault raft storage. Reads `raft.db` and `vault.db` directly without requiring a running server. Works while the server is running (copies files to bypass locks).
+Developer tool for offline inspection of OpenBao raft storage. Reads `raft.db` and `vault.db` directly without requiring a running server. Works while the server is running (copies files to bypass locks).
 
 See [raft-inspector.md](raft-inspector.md) for a full walkthrough with example output against a 3-node cluster.
 
@@ -43,13 +43,13 @@ raft-inspector snapshot <file> [--prefix <prefix>] \
 
 | Flag | Description |
 |------|-------------|
-| `<data-dir>` | Path to the OpenBao/Vault data directory (positional, required). |
+| `<data-dir>` | Path to the OpenBao data directory (positional, required). |
 
 **log** — List or inspect raft log entries with decoded operations.
 
 | Flag | Description |
 |------|-------------|
-| `<data-dir>` | Path to the OpenBao/Vault data directory (positional, required). |
+| `<data-dir>` | Path to the OpenBao data directory (positional, required). |
 | `[range]` | Index or range: `5` (single entry), `1..10` (index 1 to 10), `~10` (last 10 entries). Without this, all entries are shown. |
 | `--stats` | Show log statistics: operation distribution and hot keys. |
 | `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
@@ -58,7 +58,7 @@ raft-inspector snapshot <file> [--prefix <prefix>] \
 
 | Flag | Description |
 |------|-------------|
-| `<data-dir>` | Path to the OpenBao/Vault data directory (positional, required). |
+| `<data-dir>` | Path to the OpenBao data directory (positional, required). |
 | `--prefix` | List keys matching a prefix (shows encrypted size per key). |
 | `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
 | `--limit` | Max number of keys to display (0=unlimited). |
@@ -76,7 +76,7 @@ raft-inspector snapshot <file> [--prefix <prefix>] \
 
 Integrated storage uses two database files per node:
 
-**`raft/raft.db`** holds the replicated write-ahead log. Every write operation (secret put, lease creation, policy change) is first appended here as a log entry, then replicated to other nodes. OpenBao/Vault automatically takes periodic snapshots of the current state and truncates old log entries, keeping only a trailing window (default ~10000 entries) for follower catch-up. The file grows with write activity but freed space from truncated entries is reused internally. The on-disk file size stays roughly stable after initial growth.
+**`raft/raft.db`** holds the replicated write-ahead log. Every write operation (secret put, lease creation, policy change) is first appended here as a log entry, then replicated to other nodes. OpenBao automatically takes periodic snapshots of the current state and truncates old log entries, keeping only a trailing window (default ~10000 entries) for follower catch-up. The file grows with write activity but freed space from truncated entries is reused internally. The on-disk file size stays roughly stable after initial growth.
 
 **`vault.db`** holds the current state: all secrets, configuration, leases, and internal metadata. Log entries from `raft.db` are applied here as key/value writes and deletes. This is the "result" of replaying the log. Its size reflects the actual volume of stored data. When secrets or leases are deleted, the freed space is reused for future writes but the file does not shrink.
 
