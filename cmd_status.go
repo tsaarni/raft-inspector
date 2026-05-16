@@ -123,7 +123,7 @@ func cmdStatus(dataDir string) error {
 	// BoltDB stats: reopen the raft temp copy as raw bolt.
 	fmt.Println()
 	header.Println("─── BoltDB Stats: raft/raft.db ───")
-	raftDB, err := bolt.Open(raftTmp, 0600, &bolt.Options{ReadOnly: true})
+	raftDB, err := bolt.Open(raftTmp, 0600, &bolt.Options{ReadOnly: true, PreLoadFreelist: true})
 	if err == nil {
 		printBoltStats(raftDB, raftPath)
 		raftDB.Close()
@@ -149,11 +149,14 @@ func cmdStatus(dataDir string) error {
 	dim.Println("  Trailing Entries   Applied entries kept in the log for follower catch-up without full snapshot. [computed]")
 	dim.Println("  Snapshot Index     Highest index that was truncated; entries at or below this were compacted away. [computed]")
 	dim.Println("  File Size          Total size of the BoltDB file on disk. [os.Stat]")
-	dim.Println("  DB Logical Size    Pages allocated by BoltDB (file may be larger due to OS allocation). [bolt.Tx.Size]")
+	dim.Println("  DB Logical Size    Pages allocated by BoltDB (file may be larger due to preallocation). [bolt.Tx.Size]")
 	dim.Println("  Page Size          BoltDB page size; all allocations are in multiples of this. [bolt.DB.Info]")
 	dim.Println("  Free Pages         Pages released by deletes but not yet returned to OS; reused for future writes. [bolt.DB.Stats]")
 	dim.Println("  Pending Pages      Pages freed in current transaction, not yet available for reuse. [bolt.DB.Stats]")
 	dim.Println("  Freelist In-Use    Bytes used by BoltDB's internal freelist tracking structure. [bolt.DB.Stats]")
+	dim.Println("  Space Efficiency   Percentage of file occupied by live data (excludes free pages and preallocation). [computed]")
+	dim.Println("  Bucket <name>      Per-bucket B+tree: key count, depth, branch/leaf page utilization %. [bolt.Bucket.Stats]")
+	dim.Println("  Integrity Check    Verifies all pages are reachable or freed, no double refs. [bolt.Tx.Check]")
 	return nil
 }
 
@@ -189,4 +192,62 @@ func printBoltStats(db *bolt.DB, filePath string) {
 	value.Printf("%d\n", stats.PendingPageN)
 	label.Printf("  %-20s", "Freelist In-Use:")
 	value.Printf("%d bytes\n", stats.FreelistInuse)
+	if fileSize > 0 {
+		liveBytes := dbSize - int64(freeBytes)
+		label.Printf("  %-20s", "Space Efficiency:")
+		value.Printf("%.1f%% (%.1f MB live data)\n",
+			float64(liveBytes)/float64(fileSize)*100, float64(liveBytes)/1024/1024)
+	}
+
+	// Per-bucket B+tree stats.
+	db.View(func(tx *bolt.Tx) error {
+		var agg bolt.BucketStats
+		var count int
+		tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+			bs := b.Stats()
+			agg.Add(bs)
+			count++
+			branchPct := 0
+			if bs.BranchAlloc > 0 {
+				branchPct = int(float32(bs.BranchInuse) * 100 / float32(bs.BranchAlloc))
+			}
+			leafPct := 0
+			if bs.LeafAlloc > 0 {
+				leafPct = int(float32(bs.LeafInuse) * 100 / float32(bs.LeafAlloc))
+			}
+			label.Printf("  %-20s", fmt.Sprintf("Bucket %q:", name))
+			value.Printf("%d keys, depth %d, branch %d%% leaf %d%% utilization\n",
+				bs.KeyN, bs.Depth, branchPct, leafPct)
+			return nil
+		})
+		if count > 1 {
+			branchPct := 0
+			if agg.BranchAlloc > 0 {
+				branchPct = int(float32(agg.BranchInuse) * 100 / float32(agg.BranchAlloc))
+			}
+			leafPct := 0
+			if agg.LeafAlloc > 0 {
+				leafPct = int(float32(agg.LeafInuse) * 100 / float32(agg.LeafAlloc))
+			}
+			label.Printf("  %-20s", "Total:")
+			value.Printf("%d keys, branch %d%% leaf %d%% utilization\n",
+				agg.KeyN, branchPct, leafPct)
+		}
+		return nil
+	})
+
+	// Integrity check.
+	var checkErrs int
+	db.View(func(tx *bolt.Tx) error {
+		for range tx.Check() {
+			checkErrs++
+		}
+		return nil
+	})
+	label.Printf("  %-20s", "Integrity Check:")
+	if checkErrs == 0 {
+		value.Printf("OK\n")
+	} else {
+		warn.Printf("FAILED (%d errors)\n", checkErrs)
+	}
 }

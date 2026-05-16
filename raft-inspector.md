@@ -73,7 +73,7 @@ $ docker run -d --name bao-node0 \
     --user $(id -u):$(id -g) \
     -v $PWD/testdata:/host \
     ghcr.io/openbao/openbao:2.5.3 server -config=/host/node0.hcl
-9472af21e601f70bf79fd9bcd777b687a5ce20ac49db684a6bfcb258832aea3f
+d6c2e60c4fd17752965ca1f481f45a08118d48865b18547941446a66c1646727
 ```
 
 ```console
@@ -82,7 +82,7 @@ $ docker run -d --name bao-node1 \
     --user $(id -u):$(id -g) \
     -v $PWD/testdata:/host \
     ghcr.io/openbao/openbao:2.5.3 server -config=/host/node1.hcl
-79012679d29fbb55ba1a7688ecfcd9d1a70a04bc6bf5a080626063f2a9da72ff
+639d6410b67072e5e44d9c7266a159071c0a1cb92aefba0ff4dd67e2c558fcd1
 ```
 
 ```console
@@ -91,7 +91,7 @@ $ docker run -d --name bao-node2 \
     --user $(id -u):$(id -g) \
     -v $PWD/testdata:/host \
     ghcr.io/openbao/openbao:2.5.3 server -config=/host/node2.hcl
-ed287f488ebd60becc441400ac17891eb51806cb8d25b6e03eb2dcc411b90c2a
+bd9e71c3fb05edaf26f60e1655ef57688b176cbadf9a5ad09d1193bd04411756
 ```
 
 Wait for node0 to be ready.
@@ -109,81 +109,31 @@ Unseal node0 — it becomes the raft leader.
 
 ```console
 $ docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \
-    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json)
-Key                     Value
----                     -----
-Seal Type               shamir
-Initialized             true
-Sealed                  false
-Total Shares            1
-Threshold               1
-Version                 2.5.3
-Build Date              2026-04-20T19:28:29Z
-Storage Type            raft
-Cluster Name            vault-cluster-e6b3bd6e
-Cluster ID              2604a01b-beef-765e-df47-dac1891aa3ff
-HA Enabled              true
-HA Cluster              n/a
-HA Mode                 standby
-Active Node Address     <none>
-Raft Committed Index    26
-Raft Applied Index      26
+    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null
 ```
 
 Join node1 and node2 to the cluster, then unseal them.
 
 ```console
 $ docker exec -e BAO_ADDR=http://127.0.0.1:8202 bao-node1 \
-    bao operator raft join http://127.0.0.1:8200
-Key       Value
----       -----
-Joined    true
+    bao operator raft join http://127.0.0.1:8200 > /dev/null
 ```
 
 ```console
 $ docker exec -e BAO_ADDR=http://127.0.0.1:8204 bao-node2 \
-    bao operator raft join http://127.0.0.1:8200
-Key       Value
----       -----
-Joined    true
+    bao operator raft join http://127.0.0.1:8200 > /dev/null
 ```
 
 Unseal node1 and node2.
 
 ```console
 $ docker exec -e BAO_ADDR=http://127.0.0.1:8202 bao-node1 \
-    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json)
-Key                Value
----                -----
-Seal Type          shamir
-Initialized        true
-Sealed             true
-Total Shares       1
-Threshold          1
-Unseal Progress    0/1
-Unseal Nonce       n/a
-Version            2.5.3
-Build Date         2026-04-20T19:28:29Z
-Storage Type       raft
-HA Enabled         true
+    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null
 ```
 
 ```console
 $ docker exec -e BAO_ADDR=http://127.0.0.1:8204 bao-node2 \
-    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json)
-Key                Value
----                -----
-Seal Type          shamir
-Initialized        true
-Sealed             true
-Total Shares       1
-Threshold          1
-Unseal Progress    0/1
-Unseal Nonce       n/a
-Version            2.5.3
-Build Date         2026-04-20T19:28:29Z
-Storage Type       raft
-HA Enabled         true
+    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null
 ```
 
 Verify the cluster peers.
@@ -225,26 +175,7 @@ $ docker exec \
     -e BAO_ADDR=http://127.0.0.1:8200 \
     -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
     bao-node0 bao write -field=certificate pki/root/generate/internal \
-    common_name='Test Root CA' ttl=87600h
------BEGIN CERTIFICATE-----
-MIIDHzCCAgegAwIBAgIUNS3PyjKQGktyiO8SILxr4de9ZY8wDQYJKoZIhvcNAQEL
-BQAwFzEVMBMGA1UEAxMMVGVzdCBSb290IENBMB4XDTI2MDUxNTE2MDUwNFoXDTM2
-MDUxMjE2MDUzNFowFzEVMBMGA1UEAxMMVGVzdCBSb290IENBMIIBIjANBgkqhkiG
-9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyZHChNzujEAr0JlgbZUzzuGDdXTubQbKeIzh
-Xghh7RaqUj3LF3KGNQ9wF+GdELdL/RMa/e6K3QaZ4srvm1iCQGVzvCzpeKZVrSOc
-L+qUScN9Y/VE5ZSLFvvZBoTMuHEGogrtmfegdO58+S8uB3Ps//mA+8kgng2f7E/M
-WutZnW8gNAY2fOmhc559d6deFw5zwonDhwY2xd3Yr0/V1YJgl2AXYWueLBykoFMb
-qPkYutzgQzuS7hH5WG7iMBTstMXlwB5BnZDimz+0oJKHnhq6Q3Iq4mXTeTeTkief
-q5cMXgbSftauQH66QQ0dOlWxVCGoOJwo0yTvQD1aLa+bjpwK6wIDAQABo2MwYTAO
-BgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUtMtngSJt
-0dljArvlrTEfmDIE6LgwHwYDVR0jBBgwFoAUtMtngSJt0dljArvlrTEfmDIE6Lgw
-DQYJKoZIhvcNAQELBQADggEBADtmvmlEWwUhsnbG3VyjXOtDwDtHSRJolWsWQxz1
-HJyfPmCExtGOJeFbZhursYO+OaxUZk8anl57b9GYXVlxzij6YmRz51b1DcUbiTPM
-LAVv6HYlNa2hqlQB+8MqXoQ0Buz44P/UFbj6fv2o8NLhltcmAStzl+EvWZq4FGxY
-1yzylxxPdAQvILUcpc31eaEDVV8V2N46y7eYnHPbMGjMSXCefZQdfRgBuljheujG
-TGYWI/FHhg0KNn6ELJk1Z/1SMVdTFdAIdhsZRB4NA6iiJWxrxmvr+tENm5ckAqWn
-plDkMtnwaAj4P7WWaM+WQVhWoX34Gtu9Eb7W5GMRIlyrzyk=
------END CERTIFICATE-----
+    common_name='Test Root CA' ttl=87600h > /dev/null
 ```
 
 Enable a KV v2 secrets engine and write some secrets. Then update and delete entries to generate varied raft log operations.
@@ -262,18 +193,7 @@ $ docker exec \
     -e BAO_ADDR=http://127.0.0.1:8200 \
     -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
     bao-node0 bao kv put secret/myapp/config \
-    endpoint=https://api.example.com api_key=secret
-====== Secret Path ======
-secret/data/myapp/config
-
-======= Metadata =======
-Key                Value
----                -----
-created_time       2026-05-15T16:05:35.064467449Z
-custom_metadata    <nil>
-deletion_time      n/a
-destroyed          false
-version            1
+    endpoint=https://api.example.com api_key=secret > /dev/null
 ```
 
 ```console
@@ -281,18 +201,7 @@ $ docker exec \
     -e BAO_ADDR=http://127.0.0.1:8200 \
     -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
     bao-node0 bao kv put secret/myapp/config \
-    endpoint=https://api.example.com api_key=updated
-====== Secret Path ======
-secret/data/myapp/config
-
-======= Metadata =======
-Key                Value
----                -----
-created_time       2026-05-15T16:05:35.22826047Z
-custom_metadata    <nil>
-deletion_time      n/a
-destroyed          false
-version            2
+    endpoint=https://api.example.com api_key=updated > /dev/null
 ```
 
 ```console
@@ -300,18 +209,7 @@ $ docker exec \
     -e BAO_ADDR=http://127.0.0.1:8200 \
     -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
     bao-node0 bao kv put secret/myapp/credentials \
-    username=admin password=mypassword
-======== Secret Path ========
-secret/data/myapp/credentials
-
-======= Metadata =======
-Key                Value
----                -----
-created_time       2026-05-15T16:05:35.389262544Z
-custom_metadata    <nil>
-deletion_time      n/a
-destroyed          false
-version            1
+    username=admin password=mypassword > /dev/null
 ```
 
 ```console
@@ -322,31 +220,47 @@ $ docker exec \
 Success! Data deleted (if it existed) at: secret/data/myapp/credentials
 ```
 
-Take a raft snapshot for later inspection.
+Write secrets in bulk, then disable the engine to delete all data at once. This simulates churn and produces free pages visible in the status output.
 
 ```console
 $ docker exec \
     -e BAO_ADDR=http://127.0.0.1:8200 \
     -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
-    bao-node0 bao operator raft snapshot save /host/backup.snap
+    bao-node0 bao secrets enable -path=tmp kv-v2
+Success! Enabled the kv-v2 secrets engine at: tmp/
+```
+
+```console
+$ for i in $(seq 1 5); do docker exec \
+    -e BAO_ADDR=http://127.0.0.1:8200 \
+    -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
+    bao-node0 bao kv put tmp/$i value=$(head -c 16384 /dev/urandom | base64 -w0); done > /dev/null
+```
+
+```console
+$ docker exec \
+    -e BAO_ADDR=http://127.0.0.1:8200 \
+    -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
+    bao-node0 bao secrets disable tmp
+Success! Disabled the secrets engine (if it existed) at: tmp/
 ```
 
 ## raft-inspector status
 
-Combined health overview reading both `raft/raft.db` and `vault.db`.
+Combined health overview reading both `raft/raft.db` and `vault.db`. Note the Space Efficiency metric showing how much of the file is live data, and the estimated size after snapshot restore.
 
 ```console
 $ ./raft-inspector -d testdata/node0 status
 ─── raft/raft.db stable store ───
   Current Term:       3
   First Log Index:    1
-  Last Log Index:     49
-  Entry Count:        49
+  Last Log Index:     75
+  Entry Count:        75
   Last Vote Cand:     127.0.0.1:8201
   Last Vote Term:     3
 
 ─── vault.db config bucket ───
-  Applied Index:      49  (config/latest_indexes)
+  Applied Index:      75  (config/latest_indexes)
   Applied Term:       3  (config/latest_indexes)
   Config Index:       31  (config/latest_config)
   Servers:              (config/latest_config)
@@ -357,24 +271,34 @@ $ ./raft-inspector -d testdata/node0 status
 
 ─── Computed ───
   Unapplied Entries:  0
-  Trailing Entries:   48
+  Trailing Entries:   74
   Snapshot Index:     0
 
 ─── BoltDB Stats: raft/raft.db ───
   File Size:          16801792 bytes (16.0 MB)
-  DB Logical Size:    110592 bytes (0.1 MB)
+  DB Logical Size:    376832 bytes (0.4 MB)
   Page Size:          4096 bytes
-  Free Pages:         0 (0 bytes, 0.0%)
+  Free Pages:         35 (143360 bytes, 0.9%)
   Pending Pages:      0
   Freelist In-Use:    0 bytes
+  Space Efficiency:   1.4% (0.2 MB live data)
+  Bucket "conf":      3 keys, depth 1, branch 0% leaf 0% utilization
+  Bucket "logs":      75 keys, depth 2, branch 13% leaf 73% utilization
+  Total:              78 keys, branch 13% leaf 73% utilization
+  Integrity Check:    OK
 
 ─── BoltDB Stats: vault.db ───
   File Size:          16801792 bytes (16.0 MB)
-  DB Logical Size:    65536 bytes (0.1 MB)
+  DB Logical Size:    466944 bytes (0.4 MB)
   Page Size:          4096 bytes
-  Free Pages:         0 (0 bytes, 0.0%)
+  Free Pages:         100 (409600 bytes, 2.4%)
   Pending Pages:      0
   Freelist In-Use:    0 bytes
+  Space Efficiency:   0.3% (0.1 MB live data)
+  Bucket "config":    3 keys, depth 1, branch 0% leaf 0% utilization
+  Bucket "data":      47 keys, depth 2, branch 21% leaf 60% utilization
+  Total:              50 keys, branch 21% leaf 60% utilization
+  Integrity Check:    OK
 
   Current Term       Raft election epoch; increments each time a new leader election occurs. [raft/raft.db]
   First Log Index    Oldest log entry still retained in the log store. [raft/raft.db]
@@ -391,11 +315,50 @@ $ ./raft-inspector -d testdata/node0 status
   Trailing Entries   Applied entries kept in the log for follower catch-up without full snapshot. [computed]
   Snapshot Index     Highest index that was truncated; entries at or below this were compacted away. [computed]
   File Size          Total size of the BoltDB file on disk. [os.Stat]
-  DB Logical Size    Pages allocated by BoltDB (file may be larger due to OS allocation). [bolt.Tx.Size]
+  DB Logical Size    Pages allocated by BoltDB (file may be larger due to preallocation). [bolt.Tx.Size]
   Page Size          BoltDB page size; all allocations are in multiples of this. [bolt.DB.Info]
   Free Pages         Pages released by deletes but not yet returned to OS; reused for future writes. [bolt.DB.Stats]
   Pending Pages      Pages freed in current transaction, not yet available for reuse. [bolt.DB.Stats]
   Freelist In-Use    Bytes used by BoltDB's internal freelist tracking structure. [bolt.DB.Stats]
+  Space Efficiency   Percentage of file occupied by live data (excludes free pages and preallocation). [computed]
+  Bucket <name>      Per-bucket B+tree: key count, depth, branch/leaf page utilization %. [bolt.Bucket.Stats]
+  Integrity Check    Verifies all pages are reachable or freed, no double refs. [bolt.Tx.Check]
+```
+
+Take a snapshot and restore it to reclaim space. After restore, `vault.db` is rebuilt from scratch — its file size should match the estimate above. The `raft.db` retains all log entries; they are only truncated by automatic snapshot compaction (once entry count exceeds `snapshot_threshold`).
+
+```console
+$ docker exec \
+    -e BAO_ADDR=http://127.0.0.1:8200 \
+    -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
+    bao-node0 bao operator raft snapshot save /host/backup.snap
+```
+
+```console
+$ docker exec \
+    -e BAO_ADDR=http://127.0.0.1:8200 \
+    -e BAO_TOKEN=$(jq -r '.root_token' testdata/init.json) \
+    bao-node0 bao operator raft snapshot restore -force /host/backup.snap
+```
+
+```console
+$ docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \
+    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null
+```
+
+```console
+$ ./raft-inspector -d testdata/node0 status 2>&1 \
+    | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'
+─── BoltDB Stats: raft/raft.db ───
+  File Size:          16801792 bytes (16.0 MB)
+  DB Logical Size:    376832 bytes (0.4 MB)
+  Free Pages:         34 (139264 bytes, 0.8%)
+  Space Efficiency:   1.4% (0.2 MB live data)
+─── BoltDB Stats: vault.db ───
+  File Size:          131072 bytes (0.1 MB)
+  DB Logical Size:    77824 bytes (0.1 MB)
+  Free Pages:         3 (12288 bytes, 9.4%)
+  Space Efficiency:   50.0% (0.1 MB live data)
 ```
 
 ## raft-inspector log
@@ -405,49 +368,33 @@ Show log entries with decrypted values. The `put` operations reveal the actual s
 ```console
 $ ./raft-inspector -d testdata/node0 log -n 3 \
     --decrypt --unseal-key-file testdata/init.json
-─── raft/raft.db logs bucket (entries 1 to 49, showing 47 to 49) ───
+─── raft/raft.db logs bucket (entries 1 to 80, showing 78 to 80) ───
 
-─── Index 47 (raft/raft.db logs/47) ───
-  Index:      47
+─── Index 78 (raft/raft.db logs/78) ───
+  Index:      78
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-15 16:05:35.228302664 +0000 UTC  (+0s)
+  AppendedAt: 2026-05-16 08:41:59.597595133 +0000 UTC  (+0s)
   Operations:
-    [op=64/beginTx]   (8 bytes)
-    [op=16/verifyRead] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/p0CoAuWb2spN6Mk1TGccg1qQPzIxqABAgLK2pYFR6huHrRlL9Y9R9VJCrsHcnhdSf9j  (49 bytes)
-    [op=16/verifyRead] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/5d4/9b1c3fdea26a83d59249b950d942f6b77b35df76d4bedcc5b58d80143d51d  (49 bytes)
-    [op=2/put] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/5d4/9b1c3fdea26a83d59249b950d942f6b77b35df76d4bedcc5b58d80143d51d  (106 bytes)
-      {"api_key":"updated","endpoint":"https://api.example.com"}
-    [op=2/put] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/p0CoAuWb2spN6Mk1TGccg1qQPzIxqABAgLK2pYFR6huHrRlL9Y9R9VJCrsHcnhdSf9j  (113 bytes)
-      myapp/config
-    [op=128/commitTx]   (0 bytes)
+    [op=4/restoreCallback]   (0 bytes)
 
-─── Index 48 (raft/raft.db logs/48) ───
-  Index:      48
+─── Index 79 (raft/raft.db logs/79) ───
+  Index:      79
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-15 16:05:35.389308315 +0000 UTC  (+161ms)
+  AppendedAt: 2026-05-16 08:42:04.610465636 +0000 UTC  (+5.013s)
   Operations:
-    [op=64/beginTx]   (8 bytes)
-    [op=16/verifyRead] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/1TfA4Ai4lRtB8Y417pFSHyjwVrVXb5nbsHu5OipMgafxq2Wal1j0uhFYqRswJYsOTvGFDkCpo  (49 bytes)
-    [op=16/verifyRead] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/3fc/9a14c43f68d3307e177186426f0fb82e8c96f14be101ac88d022e6b8e07da  (49 bytes)
-    [op=2/put] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/3fc/9a14c43f68d3307e177186426f0fb82e8c96f14be101ac88d022e6b8e07da  (93 bytes)
-      {"password":"mypassword","username":"admin"}
-    [op=2/put] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/1TfA4Ai4lRtB8Y417pFSHyjwVrVXb5nbsHu5OipMgafxq2Wal1j0uhFYqRswJYsOTvGFDkCpo  (102 bytes)
-      myapp/credentials
-    [op=128/commitTx]   (0 bytes)
+    [op=2/put] core/lock  (36 bytes)
+      [decrypt error: no key for term 1633771875]
 
-─── Index 49 (raft/raft.db logs/49) ───
-  Index:      49
+─── Index 80 (raft/raft.db logs/80) ───
+  Index:      80
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-15 16:05:35.543361664 +0000 UTC  (+315ms)
+  AppendedAt: 2026-05-16 08:42:04.630397817 +0000 UTC  (+5.033s)
   Operations:
-    [op=64/beginTx]   (8 bytes)
-    [op=16/verifyRead] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/1TfA4Ai4lRtB8Y417pFSHyjwVrVXb5nbsHu5OipMgafxq2Wal1j0uhFYqRswJYsOTvGFDkCpo  (49 bytes)
-    [op=2/put] logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/1TfA4Ai4lRtB8Y417pFSHyjwVrVXb5nbsHu5OipMgafxq2Wal1j0uhFYqRswJYsOTvGFDkCpo  (116 bytes)
-      myapp/credentials
-    [op=128/commitTx]   (0 bytes)
+    [op=2/put] core/leader/aaace2f1-e5f6-7706-9315-b05c0e074b8a  (1508 bytes)
+      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICeTCCAdygAwIBAgIIKTrD1DEDEtIwCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctNjk0Y2RjZWUtOWVhNi0zMWFlLWM2NDgtYjk3ZDE3YzViYWUzMCAXDTI2MDUxNjA4NDEyM1oYDzIwNTYwNTE1MjA0MTU [...truncated, 1475 bytes total]
 
 
   Index        Sequence number of this entry in the raft log; monotonically increasing. [raft/raft.db]
@@ -464,31 +411,32 @@ Analyze log entry patterns: operation distribution and hot keys.
 ```console
 $ ./raft-inspector -d testdata/node0 log --stats
 ─── Log Statistics ───
-  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-15 16:05:35.543361664 +0000 UTC
-  Entry Count:        49
-  Total Size:         32103 bytes
-  Average Size:       655 bytes
-  Max Size:           7785 bytes
+  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 08:42:04.630397817 +0000 UTC
+  Entry Count:        80
+  Total Size:         153466 bytes
+  Average Size:       1918 bytes
+  Max Size:           23075 bytes
 
 ─── Operation Distribution ───
-  put                 53
-  verifyRead          29
-  commitTx            10
-  beginTx             10
-  delete              9
+  put                 72
+  verifyRead          46
+  delete              27
+  commitTx            18
+  beginTx             18
   verifyList          7
+  restoreCallback     1
 
 ─── Hot Keys (top 10) ───
-                                                              20
-  core/mounts                                                 8
-  logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/p0CoAuWb2spN6Mk1TGccg1qQPzIxqABAgLK2pYFR6huHrRlL9Y9R9VJCrsHcnhdSf9j4
-  logical/d7e05716-9efc-adff-11b1-f6633d9d680a/crls/config    4
-  core/mounts/d7e05716-9efc-adff-11b1-f6633d9d680a            4
-  logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/1TfA4Ai4lRtB8Y417pFSHyjwVrVXb5nbsHu5OipMgafxq2Wal1j0uhFYqRswJYsOTvGFDkCpo4
-  logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/dfb/649f59a149dd2eedb47ae4be8af465b49a47dfb22ebdbc784185b6b3c051c2
-  logical/d7e05716-9efc-adff-11b1-f6633d9d680a/config/key/b3b0da9e-33d5-a27f-0c68-4b933d2587a82
-  logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/5d4/9b1c3fdea26a83d59249b950d942f6b77b35df76d4bedcc5b58d80143d51d2
-  core/auth                                                   2
+                                                              37
+  core/mounts                                                 14
+  core/mounts/db276413-e73a-0dae-c043-4cf81e9c1896            6
+  logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/p0DLmNzEmm2lYmOKq4Uy6dc37Ci7SHZsZXwoy4x66WnW57WgcCWW66TYrFYtEKKKKKN4
+  logical/c012d973-ac94-0105-800c-442d57ed146b/crls/config    4
+  logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/1TfvJB8066YWJcCN2nimEG8i0wpFXdDC3S5H51G7a3Y35oAtYRACepW0sorwIU1AwXwlFm4dZ4
+  core/mounts/c012d973-ac94-0105-800c-442d57ed146b            4
+  logical/db276413-e73a-0dae-c043-4cf81e9c1896/56c02e31-eaf2-1a8e-cb14-5cef1cc2a4dd/upgrading3
+  logical/db276413-e73a-0dae-c043-4cf81e9c1896/56c02e31-eaf2-1a8e-cb14-5cef1cc2a4dd/metadata/18ybXNr9pJ8KtM8mOJisrel9GDTANxHcu9kRudcC5Id4bjg6x7fFW2euh3
+  logical/db276413-e73a-0dae-c043-4cf81e9c1896/56c02e31-eaf2-1a8e-cb14-5cef1cc2a4dd/versions/c06/9d11bdb0c60cf31d48fb582e8befef6faa7e626adf9f0ea53464627508fa63
 
   Time Range         Wall-clock range from oldest to newest log entry's AppendedAt timestamp. [raft/raft.db]
   Entry Count        Total number of log entries in the retained log. [raft/raft.db]
@@ -516,8 +464,8 @@ Show top-level key path segments with counts.
 ```console
 $ ./raft-inspector -d testdata/node0 fsm --top
 ─── Top-level Key Segments ───
-  logical                                 21
   core                                    21
+  logical                                 21
   sys                                     5
 
   Keys are plaintext storage paths from the vault.db data bucket; values are AES-GCM encrypted. [vault.db]
@@ -561,7 +509,7 @@ Inspect the snapshot archive metadata.
 ```console
 $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap
 ─── Snapshot Metadata ───
-  Index:          49
+  Index:          75
   Term:           3
   Servers:        
     - node0 (127.0.0.1:8201) voter
@@ -570,7 +518,7 @@ $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap
 
 ─── State Data ───
   Total Keys:     47
-  Total Size:     20944 bytes
+  Total Size:     20945 bytes
 
   Index            Raft log index at which this snapshot was taken. [meta.json]
   Term             Raft term at the time of snapshot. [meta.json]
@@ -588,7 +536,7 @@ List all key paths stored in the snapshot.
 ```console
 $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap --keys
 ─── Snapshot Metadata ───
-  Index:          49
+  Index:          75
   Term:           3
   Servers:        
     - node0 (127.0.0.1:8201) voter
@@ -597,54 +545,54 @@ $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap --keys
 
 ─── State Data ───
 core/audit
-core/auth/376df07a-c9ea-5034-5ed4-e5da5143e9c1
+core/auth/3b65c8c9-d9fb-01c4-8dde-5827e628e883
 core/cluster/local/info
 core/hsm/barrier-unseal-keys
 core/index-header-hmac-key
 core/initialize-lock
 core/keyring
-core/leader/a0de0321-a150-9e3d-2cdf-5166128af79b
+core/leader/aaace2f1-e5f6-7706-9315-b05c0e074b8a
 core/local-audit
-core/local-mounts/93d445db-d678-e1e7-a774-d2b1cd53abf9
+core/local-mounts/f7c6dc1f-257b-530b-ae7e-4990ca327ee4
 core/lock
-core/mounts/06856671-3db1-5639-5f0c-3a2f61e8bb9a
-core/mounts/538d9705-2036-5e1d-d979-29f41480bbb7
-core/mounts/94b2019e-8a09-a4c5-b32d-43c96e33c313
-core/mounts/d7e05716-9efc-adff-11b1-f6633d9d680a
+core/mounts/5fadeb16-40ad-c98a-1b81-43aa3c52cd56
+core/mounts/8e686cfd-516b-7444-19f6-70fa367fd3c7
+core/mounts/90b3b969-7659-397a-27ab-fde58482f2f9
+core/mounts/c012d973-ac94-0105-800c-442d57ed146b
 core/raft/tls
 core/root-key
 core/seal-config
 core/shamir-kek
 core/versions/2.5.3
 core/wrapping/jwtkey
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/archive/metadata
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/1TfA4Ai4lRtB8Y417pFSHyjwVrVXb5nbsHu5OipMgafxq2Wal1j0uhFYqRswJYsOTvGFDkCpo
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/metadata/5kKZIWyRbsIGBggDOSl9lJnc1sI4ldZxBsnbSoENn5Os3gb1nHokWTuGXhkUfy/p0CoAuWb2spN6Mk1TGccg1qQPzIxqABAgLK2pYFR6huHrRlL9Y9R9VJCrsHcnhdSf9j
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/policy/metadata
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/salt
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/upgrading
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/3fc/9a14c43f68d3307e177186426f0fb82e8c96f14be101ac88d022e6b8e07da
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/5d4/9b1c3fdea26a83d59249b950d942f6b77b35df76d4bedcc5b58d80143d51d
-logical/06856671-3db1-5639-5f0c-3a2f61e8bb9a/87559e23-e634-a220-0c14-b9f13e173ceb/versions/dfb/649f59a149dd2eedb47ae4be8af465b49a47dfb22ebdbc784185b6b3c051c
-logical/94b2019e-8a09-a4c5-b32d-43c96e33c313/oidc_provider/assignment/allow_all
-logical/94b2019e-8a09-a4c5-b32d-43c96e33c313/oidc_provider/provider/default
-logical/94b2019e-8a09-a4c5-b32d-43c96e33c313/oidc_tokens/named_keys/default
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/certs/35-2d-cf-ca-32-90-1a-4b-72-88-ef-12-20-bc-6b-e1-d7-bd-65-8f
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/config/issuer/a05f18be-fae1-2bcc-2508-d420d90d1e27
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/config/issuers
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/config/key/b3b0da9e-33d5-a27f-0c68-4b933d2587a8
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/config/keys
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/config/legacyMigrationBundleLog
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/crls/ca327621-8d98-4eab-4d62-e6c1eaa69816
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/crls/ca327621-8d98-4eab-4d62-e6c1eaa69816-delta
-logical/d7e05716-9efc-adff-11b1-f6633d9d680a/crls/config
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/archive/metadata
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/1TfvJB8066YWJcCN2nimEG8i0wpFXdDC3S5H51G7a3Y35oAtYRACepW0sorwIU1AwXwlFm4dZ
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/p0DLmNzEmm2lYmOKq4Uy6dc37Ci7SHZsZXwoy4x66WnW57WgcCWW66TYrFYtEKKKKKN
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/policy/metadata
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/salt
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/upgrading
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/versions/44c/e668ce4ce9b350907387da6c9f76a5653540564187a7941dbd56047c8e8e9
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/versions/589/d82c75e697d1201aaf362420def62d248acb31f59b6512cbeb8f89e6cd11c
+logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/versions/fb7/db51937f0adddc86f6b175cc40907203c0b2685ba1caa5de9e27c2bfdf97d
+logical/8e686cfd-516b-7444-19f6-70fa367fd3c7/oidc_provider/assignment/allow_all
+logical/8e686cfd-516b-7444-19f6-70fa367fd3c7/oidc_provider/provider/default
+logical/8e686cfd-516b-7444-19f6-70fa367fd3c7/oidc_tokens/named_keys/default
+logical/c012d973-ac94-0105-800c-442d57ed146b/certs/62-58-b7-2a-09-60-67-8c-86-24-6a-40-ef-39-b2-17-ca-83-26-d8
+logical/c012d973-ac94-0105-800c-442d57ed146b/config/issuer/baec5240-cdac-4091-d1bc-6437df5c7c2b
+logical/c012d973-ac94-0105-800c-442d57ed146b/config/issuers
+logical/c012d973-ac94-0105-800c-442d57ed146b/config/key/bc60f3ac-5c28-31dd-2ff7-c6bc7d3b2071
+logical/c012d973-ac94-0105-800c-442d57ed146b/config/keys
+logical/c012d973-ac94-0105-800c-442d57ed146b/config/legacyMigrationBundleLog
+logical/c012d973-ac94-0105-800c-442d57ed146b/crls/251faf5f-5fdf-6abe-2a5f-aed8f09b52b9
+logical/c012d973-ac94-0105-800c-442d57ed146b/crls/251faf5f-5fdf-6abe-2a5f-aed8f09b52b9-delta
+logical/c012d973-ac94-0105-800c-442d57ed146b/crls/config
 sys/policy/default
 sys/policy/response-wrapping
-sys/token/accessor/a8268f2e3e892558b105cb9acb1777e6f500cb7b
-sys/token/id/h983e679dccc80bf0fa3e1b18f474a4c6a612861fa166e760c53986a2bd801896
+sys/token/accessor/fe9938fcf73717c72848491c54043c80b0013ea2
+sys/token/id/he6356411336346ce38bebcc0212a57e281116db6ba087b996d1b00ad10c43b28
 sys/token/salt
   Total Keys:     47
-  Total Size:     20944 bytes
+  Total Size:     20945 bytes
 
   Index            Raft log index at which this snapshot was taken. [meta.json]
   Term             Raft term at the time of snapshot. [meta.json]
@@ -661,7 +609,7 @@ Decrypt values in the snapshot.
 $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap \
     --keys --decrypt --unseal-key-file testdata/init.json --limit 5
 ─── Snapshot Metadata ───
-  Index:          49
+  Index:          75
   Term:           3
   Servers:        
     - node0 (127.0.0.1:8201) voter
@@ -671,18 +619,18 @@ $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap \
 ─── State Data ───
 core/audit
   [hex] 471f8b08000000000002ffaa562aa92c4855b2524a2c4dc92c51d2514acd2b29ca4c2d56b2ca2bcdc9a9e502040000ffff9bcf028720000000
-core/auth/376df07a-c9ea-5034-5ed4-e5da5143e9c1
-  {"table":"auth","path":"token/","type":"token","description":"token based credentials","uuid":"376df07a-c9ea-5034-5ed4-e5da5143e9c1","backend_aware_uuid":"162b5d16-b469-f1c6-95fb-8a5d192947e9","accessor":"auth_token_f882f299","config":{},"options":null,"lo [...truncated, 308 bytes total]
+core/auth/3b65c8c9-d9fb-01c4-8dde-5827e628e883
+  {"table":"auth","path":"token/","type":"token","description":"token based credentials","uuid":"3b65c8c9-d9fb-01c4-8dde-5827e628e883","backend_aware_uuid":"809d3467-c25b-5dff-540b-7d4b13955534","accessor":"auth_token_1958f0f6","config":{},"options":null,"lo [...truncated, 308 bytes total]
 core/cluster/local/info
-  {"name":"vault-cluster-e6b3bd6e","id":"2604a01b-beef-765e-df47-dac1891aa3ff"}
+  {"name":"vault-cluster-0d8a313f","id":"9c07032c-da6f-8597-08e4-87e3768f1a02"}
 core/hsm/barrier-unseal-keys
-  [decrypt error: no key for term 172770986]
+  [decrypt error: no key for term 172802381]
 core/index-header-hmac-key
-  b58d98e3-22a8-a117-7dbd-828aea37eb49
+  8a1163e7-8f69-ad57-a740-d377fe1cdbd0
 
   [output limited to 5 entries, continuing count...]
   Total Keys:     47
-  Total Size:     20944 bytes
+  Total Size:     20945 bytes
 
   Index            Raft log index at which this snapshot was taken. [meta.json]
   Term             Raft term at the time of snapshot. [meta.json]

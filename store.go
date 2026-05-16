@@ -78,7 +78,7 @@ func openVaultDB(dataDir string) (*bolt.DB, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	db, err := bolt.Open(tmpPath, 0600, &bolt.Options{ReadOnly: true, NoFreelistSync: true})
+	db, err := bolt.Open(tmpPath, 0600, &bolt.Options{ReadOnly: true, PreLoadFreelist: true})
 	if err != nil {
 		os.Remove(tmpPath)
 		return nil, "", fmt.Errorf("opening vault.db: %w", err)

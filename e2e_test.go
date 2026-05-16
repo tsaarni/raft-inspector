@@ -92,15 +92,15 @@ EOF`)
 		"testdata/init.json")
 
 	doc.Text("Unseal node0 — it becomes the raft leader.")
-	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json)")
+	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null")
 
 	doc.Text("Join node1 and node2 to the cluster, then unseal them.")
-	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8202 bao-node1 \\\n    bao operator raft join http://127.0.0.1:8200")
-	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8204 bao-node2 \\\n    bao operator raft join http://127.0.0.1:8200")
+	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8202 bao-node1 \\\n    bao operator raft join http://127.0.0.1:8200 > /dev/null")
+	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8204 bao-node2 \\\n    bao operator raft join http://127.0.0.1:8200 > /dev/null")
 
 	doc.Text("Unseal node1 and node2.")
-	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8202 bao-node1 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json)")
-	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8204 bao-node2 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json)")
+	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8202 bao-node1 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null")
+	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8204 bao-node2 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null")
 
 	waitHTTP(t, "http://127.0.0.1:8202/v1/sys/health", 15)
 	waitHTTP(t, "http://127.0.0.1:8204/v1/sys/health", 15)
@@ -121,27 +121,43 @@ EOF`)
 
 	doc.Run(bao + " secrets enable pki")
 	doc.Run(bao + " secrets tune -max-lease-ttl=87600h pki")
-	doc.Run(bao + " write -field=certificate pki/root/generate/internal \\\n    common_name='Test Root CA' ttl=87600h")
+	doc.Run(bao + " write -field=certificate pki/root/generate/internal \\\n    common_name='Test Root CA' ttl=87600h > /dev/null")
 
 	doc.Text("Enable a KV v2 secrets engine and write some secrets. Then update and delete entries to generate varied raft log operations.")
 
 	doc.Run(bao + " secrets enable -path=secret kv-v2")
-	doc.Run(bao + " kv put secret/myapp/config \\\n    endpoint=https://api.example.com api_key=secret")
-	doc.Run(bao + " kv put secret/myapp/config \\\n    endpoint=https://api.example.com api_key=updated")
-	doc.Run(bao + " kv put secret/myapp/credentials \\\n    username=admin password=mypassword")
+	doc.Run(bao + " kv put secret/myapp/config \\\n    endpoint=https://api.example.com api_key=secret > /dev/null")
+	doc.Run(bao + " kv put secret/myapp/config \\\n    endpoint=https://api.example.com api_key=updated > /dev/null")
+	doc.Run(bao + " kv put secret/myapp/credentials \\\n    username=admin password=mypassword > /dev/null")
 	doc.Run(bao + " kv delete secret/myapp/credentials")
 
-	doc.Text("Take a raft snapshot for later inspection.")
-	doc.Run(bao + " operator raft snapshot save /host/backup.snap")
+	doc.Text("Write secrets in bulk, then disable the engine to delete all data at once. This simulates churn and produces free pages visible in the status output.")
+	doc.Run(bao + " secrets enable -path=tmp kv-v2")
+	doc.Run("for i in $(seq 1 5); do " + bao + " kv put tmp/$i value=$(head -c 16384 /dev/urandom | base64 -w0); done > /dev/null")
+	doc.Run(bao + " secrets disable tmp")
 
 	// ── raft-inspector commands ─────────────────────────────────────────
 
 	doc.H2("raft-inspector status")
-	doc.Text("Combined health overview reading both `raft/raft.db` and `vault.db`.")
+	doc.Text("Combined health overview reading both `raft/raft.db` and `vault.db`. " +
+		"Note the Space Efficiency metric showing how much of the file is live data, and the estimated size after snapshot restore.")
 	doc.RunMatch("./raft-inspector -d testdata/node0 status", []string{
 		`Current Term:`,
 		`Unapplied Entries:\s+0`,
 		`node0.*voter`,
+		`Space Efficiency:`,
+	})
+
+	doc.Text("Take a snapshot and restore it to reclaim space. " +
+		"After restore, `vault.db` is rebuilt from scratch — its file size should match the estimate above. " +
+		"The `raft.db` retains all log entries; they are only truncated by automatic snapshot compaction (once entry count exceeds `snapshot_threshold`).")
+	doc.Run(bao + " operator raft snapshot save /host/backup.snap")
+	doc.Run(bao + " operator raft snapshot restore -force /host/backup.snap")
+	waitHTTP(t, "http://127.0.0.1:8200/v1/sys/health", 15)
+	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null")
+	waitHTTP(t, "http://127.0.0.1:8200/v1/sys/health", 15)
+	doc.RunMatch("./raft-inspector -d testdata/node0 status 2>&1 \\\n    | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'", []string{
+		`BoltDB Stats`,
 	})
 
 	doc.H2("raft-inspector log")

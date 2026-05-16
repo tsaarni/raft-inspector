@@ -13,6 +13,7 @@ var (
 	header  = color.New(color.FgCyan, color.Bold)
 	label   = color.New(color.FgYellow)
 	value   = color.New(color.FgWhite)
+	warn    = color.New(color.FgRed, color.Bold)
 	opColor = color.New(color.FgGreen)
 	keyCol  = color.New(color.FgMagenta)
 	dim     = color.New(color.FgHiBlack)
