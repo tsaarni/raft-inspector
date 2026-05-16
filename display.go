@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/fatih/color"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -123,7 +124,7 @@ func printValue(plaintext []byte, maxLen int, indent string) {
 	}
 
 	if truncated {
-		dim.Printf(" [...truncated, %d bytes total]", len(plaintext))
+		dim.Printf(" [...truncated, %s total]", humanize.Bytes(uint64(len(plaintext))))
 	}
 	fmt.Println()
 }

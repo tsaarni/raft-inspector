@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	humanize "github.com/dustin/go-humanize"
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/proto"
 )
@@ -177,26 +178,26 @@ func printBoltStats(db *bolt.DB, filePath string) {
 	freeBytes := stats.FreePageN * pageSize
 
 	label.Printf("  %-20s", "File Size:")
-	value.Printf("%d bytes (%.1f MB)\n", fileSize, float64(fileSize)/1024/1024)
+	value.Printf("%s (%d bytes)\n", humanize.Bytes(uint64(fileSize)), fileSize)
 	label.Printf("  %-20s", "DB Logical Size:")
-	value.Printf("%d bytes (%.1f MB)\n", dbSize, float64(dbSize)/1024/1024)
+	value.Printf("%s (%d bytes)\n", humanize.Bytes(uint64(dbSize)), dbSize)
 	label.Printf("  %-20s", "Page Size:")
-	value.Printf("%d bytes\n", pageSize)
+	value.Printf("%s\n", humanize.Bytes(uint64(pageSize)))
 	label.Printf("  %-20s", "Free Pages:")
 	if fileSize > 0 {
-		value.Printf("%d (%d bytes, %.1f%%)\n", stats.FreePageN, freeBytes, float64(freeBytes)/float64(fileSize)*100)
+		value.Printf("%d (%s, %.1f%%)\n", stats.FreePageN, humanize.Bytes(uint64(freeBytes)), float64(freeBytes)/float64(fileSize)*100)
 	} else {
-		value.Printf("%d (%d bytes)\n", stats.FreePageN, freeBytes)
+		value.Printf("%d (%s)\n", stats.FreePageN, humanize.Bytes(uint64(freeBytes)))
 	}
 	label.Printf("  %-20s", "Pending Pages:")
 	value.Printf("%d\n", stats.PendingPageN)
 	label.Printf("  %-20s", "Freelist In-Use:")
-	value.Printf("%d bytes\n", stats.FreelistInuse)
+	value.Printf("%s\n", humanize.Bytes(uint64(stats.FreelistInuse)))
 	if fileSize > 0 {
 		liveBytes := dbSize - int64(freeBytes)
 		label.Printf("  %-20s", "Space Efficiency:")
-		value.Printf("%.1f%% (%.1f MB live data)\n",
-			float64(liveBytes)/float64(fileSize)*100, float64(liveBytes)/1024/1024)
+		value.Printf("%.1f%% (%s live data)\n",
+			float64(liveBytes)/float64(fileSize)*100, humanize.Bytes(uint64(liveBytes)))
 	}
 
 	// Per-bucket B+tree stats.

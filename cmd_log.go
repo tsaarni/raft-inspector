@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/hashicorp/raft"
 	"google.golang.org/protobuf/proto"
 )
@@ -121,15 +122,15 @@ func cmdLogStats(dbPath string) error {
 	label.Printf("  %-20s", "Entry Count:")
 	value.Printf("%d\n", entryCount)
 	label.Printf("  %-20s", "Total Size:")
-	value.Printf("%d bytes\n", totalSize)
+	value.Printf("%s\n", humanize.Bytes(totalSize))
 	label.Printf("  %-20s", "Average Size:")
 	if entryCount > 0 {
-		value.Printf("%d bytes\n", totalSize/entryCount)
+		value.Printf("%s\n", humanize.Bytes(totalSize/entryCount))
 	} else {
-		value.Printf("0 bytes\n")
+		value.Printf("0 B\n")
 	}
 	label.Printf("  %-20s", "Max Size:")
-	value.Printf("%d bytes\n", maxSize)
+	value.Printf("%s\n", humanize.Bytes(maxSize))
 
 	fmt.Println()
 	header.Println("─── Operation Distribution ───")
@@ -194,7 +195,7 @@ func printLog(log *raft.Log, refTime *time.Time, keys map[uint32][]byte, maxValu
 			for _, op := range ld.Operations {
 				opColor.Printf("    [op=%d/%s] ", op.OpType, opName(op.OpType))
 				keyCol.Printf("%s", op.Key)
-				value.Printf("  (%d bytes)\n", len(op.Value))
+				value.Printf("  (%s)\n", humanize.Bytes(uint64(len(op.Value))))
 				if keys != nil && len(op.Value) > 0 && op.OpType == 2 {
 					printDecryptedValue(keys, op.Key, op.Value, maxValueLen)
 				}

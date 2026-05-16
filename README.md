@@ -24,11 +24,11 @@ go install github.com/tsaarni/raft-inspector@latest
 ```
 raft-inspector -d <data-dir> status
 raft-inspector -d <data-dir> log [index] [-n <count>] [--stats] \
-    [--decrypt --unseal-key-file <path>]
-raft-inspector -d <data-dir> fsm [--top] [--prefix <prefix>] \
-    [--decrypt --unseal-key-file <path>] [--limit <n>]
-raft-inspector -d <data-dir> snapshot <file> [--keys] \
-    [--decrypt --unseal-key-file <path>] [--limit <n>]
+    [--unseal-key-file <path>]
+raft-inspector -d <data-dir> fsm [--prefix <prefix>] \
+    [--unseal-key-file <path>] [--limit <n>]
+raft-inspector -d <data-dir> snapshot <file> [--prefix <prefix>] \
+    [--unseal-key-file <path>] [--limit <n>]
 ```
 
 ### Global flags
@@ -49,27 +49,23 @@ raft-inspector -d <data-dir> snapshot <file> [--keys] \
 | `[index]` | Show a single log entry by index (positional argument). |
 | `-n`, `--count` | Show last N entries. |
 | `--stats` | Show log statistics: operation distribution and hot keys. |
-| `--decrypt` | Decrypt values (requires `--unseal-key-file`). |
-| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. |
+| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
 
-**fsm** — Inspect the FSM state (`vault.db` data bucket).
+**fsm** — Inspect the FSM state (`vault.db` data bucket). Shows total key count, top-level path segments, and largest keys by default.
 
 | Flag | Description |
 |------|-------------|
-| `--top` | Show top-level key path segments with counts. |
-| `--prefix` | List keys matching a prefix. |
-| `--decrypt` | Decrypt values (requires `--unseal-key-file`). |
-| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. |
+| `--prefix` | List keys matching a prefix (shows encrypted size per key). |
+| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
 | `--limit` | Max number of keys to display (0=unlimited). |
 
-**snapshot** — Inspect an external snapshot archive.
+**snapshot** — Inspect an external snapshot archive. Shows metadata, checksum verification, top-level path segments, and largest keys by default.
 
 | Flag | Description |
 |------|-------------|
 | `<file>` | Path to the snapshot file (positional argument, required). |
-| `--keys` | List all key paths in the snapshot. |
-| `--decrypt` | Decrypt values (requires `--unseal-key-file`). |
-| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. |
+| `--prefix` | List keys matching a prefix (shows encrypted size per key). |
+| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
 | `--limit` | Max number of keys to display (0=unlimited). |
 
 ## How the database files work
@@ -97,7 +93,7 @@ Integrated storage uses two database files per node:
 
 ## Decryption
 
-The tool currently supports decryption with Shamir seal (threshold=1 only). The init JSON file must match the format produced by `bao operator init -format=json`:
+The tool supports decryption with Shamir seal (threshold=1 only). Passing `--unseal-key-file` enables decryption. The init JSON file must match the format produced by `bao operator init -format=json`:
 
 ```json
 {
@@ -162,6 +158,7 @@ The tool currently supports decryption with Shamir seal (threshold=1 only). The 
 |-------|--------|-------------|
 | Keys | vault.db | Plaintext storage paths in the data bucket. Values are AES-GCM encrypted with the keyring. |
 | Top-level segments | vault.db | First path segment groups: `core/` = internal state, `sys/` = system backend (policies, leases, mounts), `logical/` = secrets engines, `auth/` = auth methods. Key count per segment shows relative data volume. |
+| Largest keys | vault.db | Top 10 entries by encrypted value size. |
 
 ### snapshot
 
@@ -172,4 +169,5 @@ The tool currently supports decryption with Shamir seal (threshold=1 only). The 
 | Servers | meta.json | Cluster membership at snapshot time. May be stale if snapshot is old. |
 | Checksums | SHA256SUMS | SHA-256 integrity verification. ✓ = intact, ✗ = corruption during transfer or storage. |
 | Total Keys | state.bin | Number of key/value entries in the full FSM state dump. Useful for comparing snapshots over time. |
-| Total Size | state.bin | Sum of all encrypted value bytes. Large growth may indicate lease explosion or data accumulation. |
+| Top-level segments | state.bin | First path segment groups and their key counts (same as fsm command). |
+| Largest keys | state.bin | Top 10 entries by encrypted value size. |

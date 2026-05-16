@@ -11,13 +11,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/fatih/color"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-func cmdSnapshot(file string, showKeys bool, decrypt bool, initFile string, maxValueLen int, limit int) error {
+func cmdSnapshot(file string, prefix string, initFile string, maxValueLen int, limit int) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return fmt.Errorf("opening snapshot: %w", err)
@@ -32,11 +34,8 @@ func cmdSnapshot(file string, showKeys bool, decrypt bool, initFile string, maxV
 
 	tr := tar.NewReader(gz)
 
-	// First pass: read meta.json and SHA256SUMS (small files).
-	// For state.bin, process it in streaming fashion.
 	var metaJSON []byte
 	var sha256sums []byte
-	// Track checksums for verification: filename -> sha256 hash of content.
 	checksums := map[string]string{}
 
 	for {
@@ -58,28 +57,23 @@ func cmdSnapshot(file string, showKeys bool, decrypt bool, initFile string, maxV
 			h := sha256.Sum256(sha256sums)
 			checksums[name] = hex.EncodeToString(h[:])
 		case "state.bin":
-			// Stream state.bin: compute checksum while parsing.
-			if err := processStateBin(tr, checksums, showKeys, decrypt, initFile, maxValueLen, limit, metaJSON, sha256sums); err != nil {
+			if err := processStateBin(tr, checksums, prefix, initFile, maxValueLen, limit, metaJSON, sha256sums); err != nil {
 				return err
 			}
 			return nil
 		default:
-			// Skip unknown entries but compute checksum.
 			data, _ := io.ReadAll(tr)
 			h := sha256.Sum256(data)
 			checksums[name] = hex.EncodeToString(h[:])
 		}
 	}
 
-	// If we get here, there was no state.bin (unusual). Print what we have.
 	printSnapshotMeta(metaJSON)
 	printChecksumVerification(sha256sums, checksums)
 	return nil
 }
 
-func processStateBin(r io.Reader, checksums map[string]string, showKeys bool, decrypt bool, initFile string, maxValueLen int, limit int, metaJSON, sha256sums []byte) error {
-	// We need to read state.bin fully for checksum verification and keyring extraction.
-	// Use a hash writer to compute checksum while reading.
+func processStateBin(r io.Reader, checksums map[string]string, prefix string, initFile string, maxValueLen int, limit int, metaJSON, sha256sums []byte) error {
 	hasher := sha256.New()
 	tee := io.TeeReader(r, hasher)
 	data, err := io.ReadAll(tee)
@@ -88,16 +82,8 @@ func processStateBin(r io.Reader, checksums map[string]string, showKeys bool, de
 	}
 	checksums["state.bin"] = hex.EncodeToString(hasher.Sum(nil))
 
-	// Print metadata and checksums first.
-	printSnapshotMeta(metaJSON)
-	printChecksumVerification(sha256sums, checksums)
-
-	// Decrypt keyring if needed.
 	var keys map[uint32][]byte
-	if decrypt {
-		if initFile == "" {
-			return fmt.Errorf("--decrypt requires --unseal-key-file")
-		}
+	if initFile != "" {
 		rootKey, err := loadRootKey(initFile)
 		if err != nil {
 			return fmt.Errorf("loading root key: %w", err)
@@ -108,23 +94,118 @@ func processStateBin(r io.Reader, checksums map[string]string, showKeys bool, de
 		}
 	}
 
-	fmt.Println()
-	header.Println("─── State Data ───")
-	count, totalSize := parseStateBin(data, showKeys, keys, maxValueLen, limit)
-	label.Printf("  %-16s", "Total Keys:")
-	value.Printf("%d\n", count)
-	label.Printf("  %-16s", "Total Size:")
-	value.Printf("%d bytes\n", totalSize)
+	if prefix != "" {
+		header.Printf("─── Keys matching prefix: %s ───\n", prefix)
+		printed := 0
+		parseStateBinFunc(data, func(key string, val []byte) {
+			if limit > 0 && printed >= limit {
+				return
+			}
+			if strings.HasPrefix(key, prefix) {
+				keyCol.Printf("%s", key)
+				dim.Printf("  (%s)\n", humanize.Bytes(uint64(len(val))))
+				if keys != nil {
+					plaintext, err := decryptEntry(keys, key, val)
+					if err != nil {
+						dim.Printf("  [decrypt error: %v]\n", err)
+					} else {
+						printValue(plaintext, maxValueLen, "  ")
+					}
+				}
+				printed++
+			}
+		})
+		if limit > 0 && printed >= limit {
+			dim.Printf("\n  [output limited to %d entries]\n", limit)
+		}
+		fmt.Println()
+		dim.Println("  Keys are plaintext storage paths from the snapshot state; values are AES-GCM encrypted. [state.bin]")
+		dim.Println("  Size shown after each key is the encrypted (ciphertext) size, not the plaintext size. [state.bin]")
+		if keys != nil {
+			dim.Println("  --unseal-key-file decrypts values using the keyring derived from the unseal key. [state.bin]")
+		}
+	} else {
+		printSnapshotMeta(metaJSON)
+		printChecksumVerification(sha256sums, checksums)
 
-	fmt.Println()
-	dim.Println("  Index            Raft log index at which this snapshot was taken. [meta.json]")
-	dim.Println("  Term             Raft term at the time of snapshot. [meta.json]")
-	dim.Println("  Servers          Cluster members: voter=participates in elections/quorum, nonvoter=replica only. [meta.json]")
-	dim.Println("  Checksums        SHA-256 integrity verification of archive contents. [SHA256SUMS]")
-	dim.Println("  Total Keys       Number of key/value entries in the FSM state dump. [state.bin]")
-	dim.Println("  Total Size       Sum of all value bytes (encrypted); does not include key path sizes. [state.bin]")
-	dim.Println("  --keys           Print all key paths; add --decrypt --unseal-key-file to show decrypted values.")
+		counts := map[string]int{}
+		total := 0
+		type keySize struct {
+			key  string
+			size int
+		}
+		var largest []keySize
+		parseStateBinFunc(data, func(key string, val []byte) {
+			total++
+			seg := key
+			if idx := strings.Index(key, "/"); idx >= 0 {
+				seg = key[:idx]
+			}
+			counts[seg]++
+			ks := keySize{key, len(val)}
+			if len(largest) < 10 {
+				largest = append(largest, ks)
+				sort.Slice(largest, func(i, j int) bool { return largest[i].size > largest[j].size })
+			} else if len(val) > largest[9].size {
+				largest[9] = ks
+				sort.Slice(largest, func(i, j int) bool { return largest[i].size > largest[j].size })
+			}
+		})
+
+		fmt.Println()
+		header.Println("─── State Data ───")
+		label.Printf("  %-16s", "Total Keys:")
+		value.Printf("%d\n", total)
+		fmt.Println()
+		header.Println("─── Top-level Key Segments ───")
+		type kv struct {
+			k string
+			v int
+		}
+		var sorted []kv
+		for k, v := range counts {
+			sorted = append(sorted, kv{k, v})
+		}
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i].v > sorted[j].v })
+		for _, item := range sorted {
+			label.Printf("  %-16s", item.k)
+			value.Printf("%d\n", item.v)
+		}
+		fmt.Println()
+		header.Println("─── Largest Keys ───")
+		for _, item := range largest {
+			value.Printf("  %9s  ", humanize.Bytes(uint64(item.size)))
+			keyCol.Printf("%s\n", item.key)
+		}
+
+		fmt.Println()
+		dim.Println("  Index            Raft log index at which this snapshot was taken. [meta.json]")
+		dim.Println("  Term             Raft term at the time of snapshot. [meta.json]")
+		dim.Println("  Servers          Cluster members: voter=participates in elections/quorum, nonvoter=replica only. [meta.json]")
+		dim.Println("  Checksums        SHA-256 integrity verification of archive contents. [SHA256SUMS]")
+		dim.Println("  Total Keys       Number of key/value entries in the FSM state dump. [state.bin]")
+		dim.Println("  Top-level segments correspond to subsystems (core/, sys/, logical/) and their key counts. [state.bin]")
+		dim.Println("  Largest keys shows top 10 entries by encrypted value size. [state.bin]")
+	}
 	return nil
+}
+
+// parseStateBinFunc iterates over all key/value entries in state.bin data, calling fn for each.
+func parseStateBinFunc(data []byte, fn func(key string, val []byte)) {
+	for len(data) > 0 {
+		msgLen, n := protowire.ConsumeVarint(data)
+		if n < 0 {
+			break
+		}
+		data = data[n:]
+		if uint64(len(data)) < msgLen {
+			break
+		}
+		msgData := data[:msgLen]
+		data = data[msgLen:]
+		key, val := parseStorageEntry(msgData)
+		fn(key, val)
+	}
 }
 
 func printSnapshotMeta(metaJSON []byte) {
@@ -181,40 +262,4 @@ func printChecksumVerification(sha256sums []byte, checksums map[string]string) {
 			}
 		}
 	}
-}
-
-func parseStateBin(data []byte, showKeys bool, keys map[uint32][]byte, maxValueLen int, limit int) (count int, totalSize int) {
-	printed := 0
-	for len(data) > 0 {
-		msgLen, n := protowire.ConsumeVarint(data)
-		if n < 0 {
-			break
-		}
-		data = data[n:]
-		if uint64(len(data)) < msgLen {
-			break
-		}
-		msgData := data[:msgLen]
-		data = data[msgLen:]
-
-		key, val := parseStorageEntry(msgData)
-		count++
-		totalSize += len(val)
-		if showKeys && (limit <= 0 || printed < limit) {
-			keyCol.Printf("%s\n", key)
-			if keys != nil {
-				plaintext, err := decryptEntry(keys, key, val)
-				if err != nil {
-					dim.Printf("  [decrypt error: %v]\n", err)
-				} else {
-					printValue(plaintext, maxValueLen, "  ")
-				}
-			}
-			printed++
-			if limit > 0 && printed >= limit {
-				dim.Printf("\n  [output limited to %d entries, continuing count...]\n", limit)
-			}
-		}
-	}
-	return
 }
