@@ -206,7 +206,7 @@ Success! Disabled the secrets engine (if it existed) at: tmp/
 Combined health overview reading both `raft/raft.db` and `vault.db`. Note the Space Efficiency metric showing how much of the file is live data, and the estimated size after snapshot restore.
 
 ```console
-$ ./raft-inspector -d testdata/node0 status
+$ ./raft-inspector status testdata/node0
 ─── raft/raft.db stable store ───
   Current Term:       3
   First Log Index:    1
@@ -245,9 +245,9 @@ $ ./raft-inspector -d testdata/node0 status
 
 ─── BoltDB Stats: vault.db ───
   File Size:          17 MB (16801792 bytes)
-  DB Logical Size:    340 kB (339968 bytes)
+  DB Logical Size:    401 kB (401408 bytes)
   Page Size:          4.1 kB
-  Free Pages:         69 (283 kB, 1.7%)
+  Free Pages:         84 (344 kB, 2.0%)
   Pending Pages:      0
   Freelist In-Use:    0 B
   Space Efficiency:   0.3% (57 kB live data)
@@ -300,7 +300,7 @@ $ docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \
 ```
 
 ```console
-$ ./raft-inspector -d testdata/node0 status 2>&1 \
+$ ./raft-inspector status testdata/node0 2>&1 \
     | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'
 ─── BoltDB Stats: raft/raft.db ───
   File Size:          17 MB (16801792 bytes)
@@ -319,7 +319,7 @@ $ ./raft-inspector -d testdata/node0 status 2>&1 \
 Show log entries with decrypted values. The `put` operations reveal the actual stored data.
 
 ```console
-$ ./raft-inspector -d testdata/node0 log -n 3 \
+$ ./raft-inspector log testdata/node0 ~3 \
     --unseal-key-file testdata/init.json
 ─── raft/raft.db logs bucket (entries 1 to 80, showing 78 to 80) ───
 
@@ -327,7 +327,7 @@ $ ./raft-inspector -d testdata/node0 log -n 3 \
   Index:      78
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 09:49:11.994513334 +0000 UTC  (+0s)
+  AppendedAt: 2026-05-16 10:41:51.060958107 +0000 UTC  (+0s)
   Operations:
     [op=4/restoreCallback]   (0 B)
 
@@ -335,19 +335,19 @@ $ ./raft-inspector -d testdata/node0 log -n 3 \
   Index:      79
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 09:49:17.010978165 +0000 UTC  (+5.016s)
+  AppendedAt: 2026-05-16 10:41:56.075976123 +0000 UTC  (+5.015s)
   Operations:
     [op=2/put] core/lock  (36 B)
-      b566a37f-48cb-3b33-23da-86450d0d559e
+      e6574296-f266-8f1b-9f13-a0ee094f917c
 
 ─── Index 80 (raft/raft.db logs/80) ───
   Index:      80
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 09:49:17.038437342 +0000 UTC  (+5.044s)
+  AppendedAt: 2026-05-16 10:41:56.106478982 +0000 UTC  (+5.046s)
   Operations:
-    [op=2/put] core/leader/b566a37f-48cb-3b33-23da-86450d0d559e  (1.5 kB)
-      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICejCCAdygAwIBAgIISqSbTLFI4DEwCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctZGJiYTA5NjctNTAwZi1kNzdkLWFkNDEtMzkxZWExN2JmMGU2MCAXDTI2MDUxNjA5NDgzNVoYDzIwNTYwNTE1MjE0OTA [...truncated, 1.5 kB total]
+    [op=2/put] core/leader/e6574296-f266-8f1b-9f13-a0ee094f917c  (1.5 kB)
+      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICejCCAdygAwIBAgIIeQ0A63DoOW8wCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctMDg1NTg1NjAtOWU3NC1iMzRkLTNjNzEtM2QyMjZjZjkyYjI0MCAXDTI2MDUxNjEwNDExNFoYDzIwNTYwNTE1MjI0MTQ [...truncated, 1.5 kB total]
 
 
   Index        Sequence number of this entry in the raft log; monotonically increasing. [raft/raft.db]
@@ -362,9 +362,9 @@ $ ./raft-inspector -d testdata/node0 log -n 3 \
 Analyze log entry patterns: operation distribution and hot keys.
 
 ```console
-$ ./raft-inspector -d testdata/node0 log --stats
+$ ./raft-inspector log testdata/node0 --stats
 ─── Log Statistics ───
-  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 09:49:17.038437342 +0000 UTC
+  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 10:41:56.106478982 +0000 UTC
   Entry Count:        80
   Total Size:         154 kB
   Average Size:       1.9 kB
@@ -374,22 +374,22 @@ $ ./raft-inspector -d testdata/node0 log --stats
   put                 72
   verifyRead          46
   delete              27
-  commitTx            18
   beginTx             18
+  commitTx            18
   verifyList          7
   restoreCallback     1
 
 ─── Hot Keys (top 10) ───
-                                                              37
-  core/mounts                                                 14
-  core/mounts/0786ad9c-b5c2-48ac-c495-600932fd7448            6
-  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/crls/config    4
-  logical/99c94a79-1bfb-920e-0393-bea341cc4b3b/b5e7a2fa-37ff-de14-7d3c-21c86a161649/metadata/5kKG4HR271ZcJ5qvbhkLCqxqFS35sTP0M1CDUFccg3EZGGsoYqcHKwcMaO9Yka/p0DYyFXhRzuM9N9NvNrcs6O9NyZgf6tn7jy7wG48CMVZDMb5qGKqaxVO3igiIFVcSGF4
-  core/mounts/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3            4
-  logical/99c94a79-1bfb-920e-0393-bea341cc4b3b/b5e7a2fa-37ff-de14-7d3c-21c86a161649/metadata/5kKG4HR271ZcJ5qvbhkLCqxqFS35sTP0M1CDUFccg3EZGGsoYqcHKwcMaO9Yka/1TfChKBxqahbTJqMMs1lmmjbthEwbhQOpRYP1ZQXfNJMtESNC2It0zvzSvQ2QBdeg6nmm2r704
-  logical/0786ad9c-b5c2-48ac-c495-600932fd7448/c0f81da9-db8c-4122-d4ee-a7571a797c79/metadata/18y9GJnWYWa6JWJ8tCq1FW9AewDVP9qdBJD7M0UB13ScF1zRfOTKDbE293
-  logical/0786ad9c-b5c2-48ac-c495-600932fd7448/c0f81da9-db8c-4122-d4ee-a7571a797c79/upgrading3
-  logical/0786ad9c-b5c2-48ac-c495-600932fd7448/c0f81da9-db8c-4122-d4ee-a7571a797c79/versions/27b/f047ad492e0934ab1a3483142f7eca57cf1f2bc42c69af5849c85e2994a493
+  37  
+  14  core/mounts
+  6  core/mounts/f68fa63f-b993-6631-6c8a-c9ac81028c40
+  4  logical/4171df53-278b-4f1c-94c1-441ff07cdfd0/18eddb17-b414-4d66-f9e2-df73672ee25f/metadata/5kL0zIOQIxqZXSGnbMKZ8gBfWiZOkr2tixPSOqDSyUmWxvbiGfmt2hK6WBKD1V/1TfGK8FAvmQFg0dQgQ49o76jXHKNJyfrRbsU8BBsJrDHEHzbzbCa1chaehZvGg91rfmtvbKru
+  4  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/crls/config
+  4  core/mounts/2a46a2d6-da3b-4d62-d060-b6c7317e4189
+  4  logical/4171df53-278b-4f1c-94c1-441ff07cdfd0/18eddb17-b414-4d66-f9e2-df73672ee25f/metadata/5kL0zIOQIxqZXSGnbMKZ8gBfWiZOkr2tixPSOqDSyUmWxvbiGfmt2hK6WBKD1V/p0CU2TZtBCii1veGpmWxN5dMhErdinpwsGQjopInCMhTTtw1Sa6z43RnNJrqmbp0gdD
+  3  logical/f68fa63f-b993-6631-6c8a-c9ac81028c40/00afc999-7cbb-52dc-b4fe-50603a8609f7/metadata/18yc2CBvMLvpTUZRO0HROvpgUFEKgDApgACrAJR6PEeWchEWZZ1Pqtw2F
+  3  logical/f68fa63f-b993-6631-6c8a-c9ac81028c40/00afc999-7cbb-52dc-b4fe-50603a8609f7/salt
+  3  logical/f68fa63f-b993-6631-6c8a-c9ac81028c40/00afc999-7cbb-52dc-b4fe-50603a8609f7/versions/214/9656a782ff53527061da9f084612e26eac4a00c33297498f100e471a9b438
 
   Time Range         Wall-clock range from oldest to newest log entry's AppendedAt timestamp. [raft/raft.db]
   Entry Count        Total number of log entries in the retained log. [raft/raft.db]
@@ -403,7 +403,7 @@ $ ./raft-inspector -d testdata/node0 log --stats
 Show total key count, top-level key path segments, and largest keys in the FSM data store (`vault.db`).
 
 ```console
-$ ./raft-inspector -d testdata/node0 fsm
+$ ./raft-inspector fsm testdata/node0
 ─── State Data ───
   Total Keys:     47
 
@@ -413,16 +413,16 @@ $ ./raft-inspector -d testdata/node0 fsm
   sys             5
 
 ─── Largest Keys ───
-     2.8 kB  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/config/issuer/9d93432a-4d92-aae3-729a-e450c43af295
+     2.8 kB  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/config/issuer/ae51402c-2ddb-8988-5223-d02f54ffd9cc
      2.7 kB  sys/policy/default
-     1.8 kB  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/config/key/639999ab-686e-fcfc-cee1-6a6b65a0ddaf
+     1.8 kB  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/config/key/0c975b39-0427-7eef-d29c-63de445879c7
      1.7 kB  core/raft/tls
-     1.5 kB  core/leader/b566a37f-48cb-3b33-23da-86450d0d559e
-      908 B  logical/99c94a79-1bfb-920e-0393-bea341cc4b3b/b5e7a2fa-37ff-de14-7d3c-21c86a161649/policy/metadata
-      836 B  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/certs/2f-ae-62-59-76-a8-e0-4e-df-2f-39-bd-27-a4-cc-b8-04-e0-42-18
-      574 B  logical/99c94a79-1bfb-920e-0393-bea341cc4b3b/b5e7a2fa-37ff-de14-7d3c-21c86a161649/archive/metadata
-      535 B  core/wrapping/jwtkey
-      528 B  sys/token/id/h7c6870f38117fbc2f7dd45c1fb05b25acfee8b0d9e39c3e0830bb711f34908b2
+     1.5 kB  core/leader/e6574296-f266-8f1b-9f13-a0ee094f917c
+      908 B  logical/4171df53-278b-4f1c-94c1-441ff07cdfd0/18eddb17-b414-4d66-f9e2-df73672ee25f/policy/metadata
+      836 B  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/certs/24-4b-f1-78-63-d6-71-94-61-0b-99-4e-3c-ba-9c-b3-68-de-91-92
+      574 B  logical/4171df53-278b-4f1c-94c1-441ff07cdfd0/18eddb17-b414-4d66-f9e2-df73672ee25f/archive/metadata
+      534 B  core/wrapping/jwtkey
+      528 B  sys/token/id/hb777b50f0275a9ff56afb261bd7abc576813493939e0148ca4f23f897fbccb62
 
   Keys are plaintext storage paths from the vault.db data bucket; values are AES-GCM encrypted. [vault.db]
   Top-level segments correspond to subsystems (core/, sys/, logical/) and their key counts. [vault.db]
@@ -434,10 +434,10 @@ $ ./raft-inspector -d testdata/node0 fsm
 List FSM keys matching a prefix. Shows encrypted value size after each key.
 
 ```console
-$ ./raft-inspector -d testdata/node0 fsm --prefix sys/policy/
+$ ./raft-inspector fsm testdata/node0 --prefix sys/policy/
 ─── Keys matching prefix: sys/policy/ ───
 sys/policy/default  (2.7 kB)
-sys/policy/response-wrapping  (347 B)
+sys/policy/response-wrapping  (348 B)
 
   Keys are plaintext storage paths from the vault.db data bucket; values are AES-GCM encrypted. [vault.db]
   Size shown after each key is the encrypted (ciphertext) size, not the plaintext size. [vault.db]
@@ -446,13 +446,13 @@ sys/policy/response-wrapping  (347 B)
 Show decrypted values for keys matching a prefix.
 
 ```console
-$ ./raft-inspector -d testdata/node0 fsm --prefix sys/policy/ \
+$ ./raft-inspector fsm testdata/node0 --prefix sys/policy/ \
     --unseal-key-file testdata/init.json
 ─── Keys matching prefix: sys/policy/ ───
 sys/policy/default  (2.7 kB)
   {"Version":2,"DataVersion":1,"CASRequired":false,"Raw":"\n# Allow tokens to look up their own properties\npath \"auth/token/lookup-self\" {\n    capabilities = [\"read\"]\n}\n\n# Allow tokens to renew themselves\npath \"auth/token/renew-self\" {\n    capab [...truncated, 2.7 kB total]
-sys/policy/response-wrapping  (347 B)
-  {"Version":2,"DataVersion":1,"CASRequired":false,"Raw":"\npath \"cubbyhole/response\" {\n    capabilities = [\"create\", \"read\"]\n}\n\npath \"sys/wrapping/unwrap\" {\n    capabilities = [\"update\"]\n}\n","Templated":false,"Type":0,"Expiration":"0001-01- [...truncated, 314 B total]
+sys/policy/response-wrapping  (348 B)
+  {"Version":2,"DataVersion":1,"CASRequired":false,"Raw":"\npath \"cubbyhole/response\" {\n    capabilities = [\"create\", \"read\"]\n}\n\npath \"sys/wrapping/unwrap\" {\n    capabilities = [\"update\"]\n}\n","Templated":false,"Type":0,"Expiration":"0001-01- [...truncated, 315 B total]
 
   Keys are plaintext storage paths from the vault.db data bucket; values are AES-GCM encrypted. [vault.db]
   Size shown after each key is the encrypted (ciphertext) size, not the plaintext size. [vault.db]
@@ -482,16 +482,16 @@ $ ./raft-inspector snapshot testdata/backup.snap
   sys             5
 
 ─── Largest Keys ───
-     2.8 kB  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/config/issuer/9d93432a-4d92-aae3-729a-e450c43af295
+     2.8 kB  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/config/issuer/ae51402c-2ddb-8988-5223-d02f54ffd9cc
      2.7 kB  sys/policy/default
-     1.8 kB  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/config/key/639999ab-686e-fcfc-cee1-6a6b65a0ddaf
+     1.8 kB  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/config/key/0c975b39-0427-7eef-d29c-63de445879c7
      1.7 kB  core/raft/tls
-     1.5 kB  core/leader/b566a37f-48cb-3b33-23da-86450d0d559e
-      908 B  logical/99c94a79-1bfb-920e-0393-bea341cc4b3b/b5e7a2fa-37ff-de14-7d3c-21c86a161649/policy/metadata
-      836 B  logical/1b5aa0b3-2d58-b1d4-9dc9-f0d3b7efd8f3/certs/2f-ae-62-59-76-a8-e0-4e-df-2f-39-bd-27-a4-cc-b8-04-e0-42-18
-      574 B  logical/99c94a79-1bfb-920e-0393-bea341cc4b3b/b5e7a2fa-37ff-de14-7d3c-21c86a161649/archive/metadata
-      535 B  core/wrapping/jwtkey
-      528 B  sys/token/id/h7c6870f38117fbc2f7dd45c1fb05b25acfee8b0d9e39c3e0830bb711f34908b2
+     1.5 kB  core/leader/e6574296-f266-8f1b-9f13-a0ee094f917c
+      908 B  logical/4171df53-278b-4f1c-94c1-441ff07cdfd0/18eddb17-b414-4d66-f9e2-df73672ee25f/policy/metadata
+      836 B  logical/2a46a2d6-da3b-4d62-d060-b6c7317e4189/certs/24-4b-f1-78-63-d6-71-94-61-0b-99-4e-3c-ba-9c-b3-68-de-91-92
+      574 B  logical/4171df53-278b-4f1c-94c1-441ff07cdfd0/18eddb17-b414-4d66-f9e2-df73672ee25f/archive/metadata
+      534 B  core/wrapping/jwtkey
+      528 B  sys/token/id/hb777b50f0275a9ff56afb261bd7abc576813493939e0148ca4f23f897fbccb62
 
   Index            Raft log index at which this snapshot was taken. [meta.json]
   Term             Raft term at the time of snapshot. [meta.json]
@@ -510,7 +510,7 @@ List snapshot keys matching a prefix.
 $ ./raft-inspector snapshot testdata/backup.snap --prefix sys/policy/
 ─── Keys matching prefix: sys/policy/ ───
 sys/policy/default  (2.7 kB)
-sys/policy/response-wrapping  (347 B)
+sys/policy/response-wrapping  (348 B)
 
   Keys are plaintext storage paths from the snapshot state; values are AES-GCM encrypted. [state.bin]
   Size shown after each key is the encrypted (ciphertext) size, not the plaintext size. [state.bin]
@@ -524,8 +524,8 @@ $ ./raft-inspector snapshot testdata/backup.snap \
 ─── Keys matching prefix: sys/policy/ ───
 sys/policy/default  (2.7 kB)
   {"Version":2,"DataVersion":1,"CASRequired":false,"Raw":"\n# Allow tokens to look up their own properties\npath \"auth/token/lookup-self\" {\n    capabilities = [\"read\"]\n}\n\n# Allow tokens to renew themselves\npath \"auth/token/renew-self\" {\n    capab [...truncated, 2.7 kB total]
-sys/policy/response-wrapping  (347 B)
-  {"Version":2,"DataVersion":1,"CASRequired":false,"Raw":"\npath \"cubbyhole/response\" {\n    capabilities = [\"create\", \"read\"]\n}\n\npath \"sys/wrapping/unwrap\" {\n    capabilities = [\"update\"]\n}\n","Templated":false,"Type":0,"Expiration":"0001-01- [...truncated, 314 B total]
+sys/policy/response-wrapping  (348 B)
+  {"Version":2,"DataVersion":1,"CASRequired":false,"Raw":"\npath \"cubbyhole/response\" {\n    capabilities = [\"create\", \"read\"]\n}\n\npath \"sys/wrapping/unwrap\" {\n    capabilities = [\"update\"]\n}\n","Templated":false,"Type":0,"Expiration":"0001-01- [...truncated, 315 B total]
 
   Keys are plaintext storage paths from the snapshot state; values are AES-GCM encrypted. [state.bin]
   Size shown after each key is the encrypted (ciphertext) size, not the plaintext size. [state.bin]

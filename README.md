@@ -22,12 +22,12 @@ go install github.com/tsaarni/raft-inspector@latest
 ## Usage
 
 ```
-raft-inspector -d <data-dir> status
-raft-inspector -d <data-dir> log [index] [-n <count>] [--stats] \
+raft-inspector status <data-dir>
+raft-inspector log <data-dir> [range] [--stats] \
     [--unseal-key-file <path>]
-raft-inspector -d <data-dir> fsm [--prefix <prefix>] \
+raft-inspector fsm <data-dir> [--prefix <prefix>] \
     [--unseal-key-file <path>] [--limit <n>]
-raft-inspector -d <data-dir> snapshot <file> [--prefix <prefix>] \
+raft-inspector snapshot <file> [--prefix <prefix>] \
     [--unseal-key-file <path>] [--limit <n>]
 ```
 
@@ -35,19 +35,22 @@ raft-inspector -d <data-dir> snapshot <file> [--prefix <prefix>] \
 
 | Flag | Description |
 |------|-------------|
-| `-d`, `--data-dir` | Path to the OpenBao/Vault data directory (required). Expects `<data-dir>/raft/raft.db` and `<data-dir>/vault.db`. |
 | `--max-value-length` | Max bytes of decrypted value to display (default 256, 0=unlimited). |
 
 ### Commands
 
 **status** — Combined health overview reading both `raft/raft.db` and `vault.db`.
 
+| Flag | Description |
+|------|-------------|
+| `<data-dir>` | Path to the OpenBao/Vault data directory (positional, required). |
+
 **log** — List or inspect raft log entries with decoded operations.
 
 | Flag | Description |
 |------|-------------|
-| `[index]` | Show a single log entry by index (positional argument). |
-| `-n`, `--count` | Show last N entries. |
+| `<data-dir>` | Path to the OpenBao/Vault data directory (positional, required). |
+| `[range]` | Index or range: `5` (single entry), `1..10` (index 1 to 10), `~10` (last 10 entries). Without this, all entries are shown. |
 | `--stats` | Show log statistics: operation distribution and hot keys. |
 | `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
 
@@ -55,6 +58,7 @@ raft-inspector -d <data-dir> snapshot <file> [--prefix <prefix>] \
 
 | Flag | Description |
 |------|-------------|
+| `<data-dir>` | Path to the OpenBao/Vault data directory (positional, required). |
 | `--prefix` | List keys matching a prefix (shows encrypted size per key). |
 | `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
 | `--limit` | Max number of keys to display (0=unlimited). |

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -19,33 +20,17 @@ func main() {
 		os.Exit(1)
 	}()
 
-	var dataDir string
 	var maxValueLen int
 
 	root := &cobra.Command{
 		Use:   "raft-inspector",
 		Short: "Inspect OpenBao/Vault raft storage",
 	}
-	root.PersistentFlags().StringVarP(&dataDir, "data-dir", "d", "", "Path to the OpenBao/Vault data directory")
 	root.PersistentFlags().IntVar(&maxValueLen, "max-value-length", 256, "Max bytes of decrypted value to display (0=unlimited)")
 
-	requireDataDir := func(cmd *cobra.Command, args []string) error {
-		if dataDir == "" {
-			return fmt.Errorf("required flag \"data-dir\" not set")
-		}
-		return nil
-	}
-
-	statusCmd := newStatusCmd(&dataDir)
-	statusCmd.PreRunE = requireDataDir
-	logCmd := newLogCmd(&dataDir, &maxValueLen)
-	logCmd.PreRunE = requireDataDir
-	fsmCmd := newFsmCmd(&dataDir, &maxValueLen)
-	fsmCmd.PreRunE = requireDataDir
-
-	root.AddCommand(statusCmd)
-	root.AddCommand(logCmd)
-	root.AddCommand(fsmCmd)
+	root.AddCommand(newStatusCmd())
+	root.AddCommand(newLogCmd(&maxValueLen))
+	root.AddCommand(newFsmCmd(&maxValueLen))
 	root.AddCommand(newSnapshotCmd(&maxValueLen))
 
 	if err := root.Execute(); err != nil {
@@ -55,40 +40,45 @@ func main() {
 	cleanupTempFiles()
 }
 
-func newStatusCmd(dataDir *string) *cobra.Command {
+func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
+		Use:   "status <data-dir>",
 		Short: "Show raft and FSM health overview",
-		Args:  cobra.NoArgs,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmdStatus(*dataDir)
+			return cmdStatus(args[0])
 		},
 	}
 }
 
-func newLogCmd(dataDir *string, maxValueLen *int) *cobra.Command {
+func newLogCmd(maxValueLen *int) *cobra.Command {
 	logCmd := &cobra.Command{
-		Use:   "log [index]",
+		Use:   "log <data-dir> [range]",
 		Short: "List or inspect raft log entries",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `List or inspect raft log entries.
+
+Range argument selects which entries to display:
+  5       single entry at index 5
+  1..10   entries from index 1 to 10
+  ~10     last 10 entries
+  (none)  all entries`,
+		Args: cobra.RangeArgs(1, 2),
 	}
-	var logN uint64
 	var logStats bool
 	var logInitFile string
-	logCmd.Flags().Uint64VarP(&logN, "count", "n", 0, "Show last N entries")
 	logCmd.Flags().BoolVar(&logStats, "stats", false, "Show log statistics and hot keys")
 	logCmd.Flags().StringVar(&logInitFile, "unseal-key-file", "", "Path to unseal key JSON file (enables decryption)")
 	logCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return cmdLog(*dataDir, args, logN, logStats, logInitFile, *maxValueLen)
+		return cmdLog(args[0], args[1:], logStats, logInitFile, *maxValueLen)
 	}
 	return logCmd
 }
 
-func newFsmCmd(dataDir *string, maxValueLen *int) *cobra.Command {
+func newFsmCmd(maxValueLen *int) *cobra.Command {
 	fsmCmd := &cobra.Command{
-		Use:   "fsm",
+		Use:   "fsm <data-dir>",
 		Short: "Inspect the FSM (vault.db) key store",
-		Args:  cobra.NoArgs,
+		Args:  cobra.ExactArgs(1),
 	}
 	var fsmPrefix string
 	var fsmInitFile string
@@ -97,7 +87,7 @@ func newFsmCmd(dataDir *string, maxValueLen *int) *cobra.Command {
 	fsmCmd.Flags().StringVar(&fsmInitFile, "unseal-key-file", "", "Path to unseal key JSON file (enables decryption)")
 	fsmCmd.Flags().IntVar(&fsmLimit, "limit", 0, "Max number of keys to display (0=unlimited)")
 	fsmCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return cmdFsm(*dataDir, fsmPrefix, fsmInitFile, *maxValueLen, fsmLimit)
+		return cmdFsm(args[0], fsmPrefix, fsmInitFile, *maxValueLen, fsmLimit)
 	}
 	return fsmCmd
 }
@@ -120,7 +110,7 @@ func newSnapshotCmd(maxValueLen *int) *cobra.Command {
 	return snapshotCmd
 }
 
-func cmdLog(dataDir string, args []string, n uint64, stats bool, initFile string, maxValueLen int) error {
+func cmdLog(dataDir string, args []string, stats bool, initFile string, maxValueLen int) error {
 	dbPath := fmt.Sprintf("%s/raft/raft.db", dataDir)
 	var keys map[uint32][]byte
 	if initFile != "" {
@@ -143,11 +133,38 @@ func cmdLog(dataDir string, args []string, n uint64, stats bool, initFile string
 		return cmdLogStats(dbPath)
 	}
 	if len(args) == 1 {
+		arg := args[0]
+		// Parse range: "1..10" or "~10" (last 10)
+		if start, end, ok := parseRange(arg); ok {
+			return cmdLogList(dbPath, start, end, keys, maxValueLen)
+		}
 		var index uint64
-		if _, err := fmt.Sscanf(args[0], "%d", &index); err != nil {
-			return fmt.Errorf("invalid index: %s", args[0])
+		if _, err := fmt.Sscanf(arg, "%d", &index); err != nil {
+			return fmt.Errorf("invalid index or range: %s", arg)
 		}
 		return cmdLogSingle(dbPath, index, keys, maxValueLen)
 	}
-	return cmdLogList(dbPath, n, keys, maxValueLen)
+	return cmdLogList(dbPath, 0, 0, keys, maxValueLen)
+}
+
+// parseRange parses "START..END" or "~N" (last N entries).
+// For "~N", start is returned as 0 to signal "last N" mode.
+func parseRange(s string) (start, end uint64, ok bool) {
+	// "~N" means last N entries
+	if len(s) > 1 && s[0] == '~' {
+		var n uint64
+		if _, err := fmt.Sscanf(s[1:], "%d", &n); err == nil {
+			return 0, n, true
+		}
+	}
+	// "START..END"
+	if parts := strings.SplitN(s, "..", 2); len(parts) == 2 {
+		var a, b uint64
+		if _, err := fmt.Sscanf(parts[0], "%d", &a); err == nil {
+			if _, err := fmt.Sscanf(parts[1], "%d", &b); err == nil {
+				return a, b, true
+			}
+		}
+	}
+	return 0, 0, false
 }

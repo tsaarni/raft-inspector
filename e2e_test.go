@@ -148,7 +148,7 @@ EOF`)
 	doc.H2("raft-inspector status")
 	doc.Text("Combined health overview reading both `raft/raft.db` and `vault.db`. " +
 		"Note the Space Efficiency metric showing how much of the file is live data, and the estimated size after snapshot restore.")
-	out = doc.Run("./raft-inspector -d testdata/node0 status")
+	out = doc.Run("./raft-inspector status testdata/node0")
 	containsAll(t, out, "Current Term:", "Unapplied Entries:", "node0", "voter", "Space Efficiency:")
 
 	doc.Text("Take a snapshot and restore it to reclaim space. " +
@@ -161,31 +161,31 @@ EOF`)
 	waitHTTP(t, "http://127.0.0.1:8200/v1/sys/health", 15)
 	doc.Run("docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \\\n    bao operator unseal $(jq -r '.unseal_keys_b64[0]' testdata/init.json) > /dev/null")
 	waitHTTP(t, "http://127.0.0.1:8200/v1/sys/health", 15)
-	out = doc.Run("./raft-inspector -d testdata/node0 status 2>&1 \\\n    | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'")
+	out = doc.Run("./raft-inspector status testdata/node0 2>&1 \\\n    | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'")
 	containsAll(t, out, "BoltDB Stats")
 
 	doc.H2("raft-inspector log")
 	doc.Text("Show log entries with decrypted values. The `put` operations reveal the actual stored data.")
-	out = doc.Run("./raft-inspector -d testdata/node0 log -n 3 \\\n    --unseal-key-file testdata/init.json")
+	out = doc.Run("./raft-inspector log testdata/node0 ~3 \\\n    --unseal-key-file testdata/init.json")
 	containsAll(t, out, "LogCommand")
 
 	doc.H2("raft-inspector log --stats")
 	doc.Text("Analyze log entry patterns: operation distribution and hot keys.")
-	out = doc.Run("./raft-inspector -d testdata/node0 log --stats")
+	out = doc.Run("./raft-inspector log testdata/node0 --stats")
 	containsAll(t, out, "Entry Count:", "put", "Hot Keys")
 
 	doc.H2("raft-inspector fsm")
 	doc.Text("Show total key count, top-level key path segments, and largest keys in the FSM data store (`vault.db`).")
-	out = doc.Run("./raft-inspector -d testdata/node0 fsm")
+	out = doc.Run("./raft-inspector fsm testdata/node0")
 	containsAll(t, out, "State Data", "Total Keys:", "core", "logical", "sys", "Largest Keys")
 
 	doc.H2("raft-inspector fsm --prefix")
 	doc.Text("List FSM keys matching a prefix. Shows encrypted value size after each key.")
-	out = doc.Run("./raft-inspector -d testdata/node0 fsm --prefix sys/policy/")
+	out = doc.Run("./raft-inspector fsm testdata/node0 --prefix sys/policy/")
 	containsAll(t, out, "sys/policy/default", "kB")
 
 	doc.Text("Show decrypted values for keys matching a prefix.")
-	out = doc.Run("./raft-inspector -d testdata/node0 fsm --prefix sys/policy/ \\\n    --unseal-key-file testdata/init.json")
+	out = doc.Run("./raft-inspector fsm testdata/node0 --prefix sys/policy/ \\\n    --unseal-key-file testdata/init.json")
 	containsAll(t, out, "sys/policy/default")
 
 	doc.H2("raft-inspector snapshot")

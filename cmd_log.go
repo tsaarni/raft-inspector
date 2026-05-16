@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -11,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func cmdLogList(dbPath string, n uint64, keys map[uint32][]byte, maxValueLen int) error {
+func cmdLogList(dbPath string, startIdx, endIdx uint64, keys map[uint32][]byte, maxValueLen int) error {
 	store, tmpPath, err := openStore(dbPath)
 	if err != nil {
 		return err
@@ -22,17 +23,29 @@ func cmdLogList(dbPath string, n uint64, keys map[uint32][]byte, maxValueLen int
 	first, _ := store.FirstIndex()
 	last, _ := store.LastIndex()
 
-	start := first
-	if n > 0 && last-first+1 > n {
-		start = last - n + 1
+	start, end := first, last
+	if startIdx != 0 {
+		// Explicit range: "START-END"
+		start, end = startIdx, endIdx
+	} else if endIdx != 0 {
+		// "last N" mode: startIdx==0, endIdx==N
+		if last-first+1 > endIdx {
+			start = last - endIdx + 1
+		}
 	}
 
-	header.Printf("─── raft/raft.db logs bucket (entries %d to %d, showing %d to %d) ───\n\n", first, last, start, last)
+	header.Printf("─── raft/raft.db logs bucket (entries %d to %d, showing %d to %d) ───\n\n", first, last, start, end)
 	var refTime *time.Time
-	for i := start; i <= last; i++ {
+	for i := start; i <= end; i++ {
 		var log raft.Log
 		if err := store.GetLog(i, &log); err != nil {
-			fmt.Printf("Index %d: error: %v\n", i, err)
+			if errors.Is(err, raft.ErrLogNotFound) {
+				header.Printf("─── Index %d (raft/raft.db logs/%d) ───\n", i, i)
+				printLogHole(i)
+				fmt.Println()
+			} else {
+				fmt.Printf("Index %d: error: %v\n", i, err)
+			}
 			continue
 		}
 		if refTime == nil && !log.AppendedAt.IsZero() {
@@ -59,6 +72,13 @@ func cmdLogSingle(dbPath string, index uint64, keys map[uint32][]byte, maxValueL
 
 	var log raft.Log
 	if err := store.GetLog(index, &log); err != nil {
+		first, _ := store.FirstIndex()
+		last, _ := store.LastIndex()
+		if errors.Is(err, raft.ErrLogNotFound) && index >= first && index <= last {
+			header.Printf("─── Index %d (raft/raft.db logs/%d) ───\n", index, index)
+			printLogHole(index)
+			return nil
+		}
 		return fmt.Errorf("reading log index %d: %w", index, err)
 	}
 	printLog(&log, nil, keys, maxValueLen)
@@ -160,8 +180,8 @@ func cmdLogStats(dbPath string) error {
 		limit = len(keySorted)
 	}
 	for _, item := range keySorted[:limit] {
-		keyCol.Printf("  %-60s", item.k)
-		value.Printf("%d\n", item.v)
+		value.Printf("  %d  ", item.v)
+		keyCol.Printf("%s\n", item.k)
 	}
 
 	fmt.Println()
@@ -204,6 +224,14 @@ func printLog(log *raft.Log, refTime *time.Time, keys map[uint32][]byte, maxValu
 			fmt.Printf("  Data: (protobuf decode error: %v)\n", err)
 		}
 	}
+}
+
+func printLogHole(index uint64) {
+	label.Printf("  %-12s", "Index:")
+	value.Printf("%d\n", index)
+	label.Printf("  %-12s", "Note:")
+	dim.Printf("entry was never written to the log (snapshot restore)\n")
+	dim.Printf("              ensures followers fall back to full snapshot sync\n")
 }
 
 func printLogLegend() {
