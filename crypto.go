@@ -67,7 +67,22 @@ func decryptBarrierEntry(key []byte, path string, raw []byte) ([]byte, error) {
 	return aesGCMDecrypt(key, payload, aad)
 }
 
+// nonBarrierKeys lists storage paths that are written directly to the physical
+// backend without barrier encryption. Attempting to decrypt them as barrier
+// entries would misinterpret their raw bytes as an encryption term.
+var nonBarrierKeys = map[string]string{
+	"core/lock":                    "not encrypted (raw leader UUID written directly to physical storage)",
+	"core/hsm/barrier-unseal-keys": "encrypted with seal key, not barrier (protobuf-wrapped BlobInfo)",
+}
+
 func decryptEntry(keys map[uint32][]byte, path string, raw []byte) ([]byte, error) {
+	if msg, ok := nonBarrierKeys[path]; ok {
+		if path == "core/lock" {
+			// core/lock is a raw UUID string, return it directly.
+			return raw, nil
+		}
+		return nil, fmt.Errorf("skipped: %s", msg)
+	}
 	if len(raw) < 5 {
 		return nil, fmt.Errorf("entry too short")
 	}

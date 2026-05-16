@@ -73,7 +73,7 @@ $ docker run -d --name bao-node0 \
     --user $(id -u):$(id -g) \
     -v $PWD/testdata:/host \
     ghcr.io/openbao/openbao:2.5.3 server -config=/host/node0.hcl
-d6c2e60c4fd17752965ca1f481f45a08118d48865b18547941446a66c1646727
+e9f6791c176adb69f991eb964511a4b8ecd3992c80588e49690c0dae149dcd3a
 ```
 
 ```console
@@ -82,7 +82,7 @@ $ docker run -d --name bao-node1 \
     --user $(id -u):$(id -g) \
     -v $PWD/testdata:/host \
     ghcr.io/openbao/openbao:2.5.3 server -config=/host/node1.hcl
-639d6410b67072e5e44d9c7266a159071c0a1cb92aefba0ff4dd67e2c558fcd1
+41b32ffbe29a3fe16801bf322249cb699de2f8c9c1e1bae4635e5e493c2bb9fa
 ```
 
 ```console
@@ -91,7 +91,7 @@ $ docker run -d --name bao-node2 \
     --user $(id -u):$(id -g) \
     -v $PWD/testdata:/host \
     ghcr.io/openbao/openbao:2.5.3 server -config=/host/node2.hcl
-bd9e71c3fb05edaf26f60e1655ef57688b176cbadf9a5ad09d1193bd04411756
+e21eec6c0f441abf9820c751578017e624e421c77d1cca7c110a8339dd17d697
 ```
 
 Wait for node0 to be ready.
@@ -276,9 +276,9 @@ $ ./raft-inspector -d testdata/node0 status
 
 ─── BoltDB Stats: raft/raft.db ───
   File Size:          16801792 bytes (16.0 MB)
-  DB Logical Size:    376832 bytes (0.4 MB)
+  DB Logical Size:    327680 bytes (0.3 MB)
   Page Size:          4096 bytes
-  Free Pages:         35 (143360 bytes, 0.9%)
+  Free Pages:         23 (94208 bytes, 0.6%)
   Pending Pages:      0
   Freelist In-Use:    0 bytes
   Space Efficiency:   1.4% (0.2 MB live data)
@@ -289,15 +289,15 @@ $ ./raft-inspector -d testdata/node0 status
 
 ─── BoltDB Stats: vault.db ───
   File Size:          16801792 bytes (16.0 MB)
-  DB Logical Size:    466944 bytes (0.4 MB)
+  DB Logical Size:    389120 bytes (0.4 MB)
   Page Size:          4096 bytes
-  Free Pages:         100 (409600 bytes, 2.4%)
+  Free Pages:         81 (331776 bytes, 2.0%)
   Pending Pages:      0
   Freelist In-Use:    0 bytes
   Space Efficiency:   0.3% (0.1 MB live data)
   Bucket "config":    3 keys, depth 1, branch 0% leaf 0% utilization
-  Bucket "data":      47 keys, depth 2, branch 21% leaf 60% utilization
-  Total:              50 keys, branch 21% leaf 60% utilization
+  Bucket "data":      47 keys, depth 2, branch 18% leaf 60% utilization
+  Total:              50 keys, branch 18% leaf 60% utilization
   Integrity Check:    OK
 
   Current Term       Raft election epoch; increments each time a new leader election occurs. [raft/raft.db]
@@ -351,8 +351,8 @@ $ ./raft-inspector -d testdata/node0 status 2>&1 \
     | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'
 ─── BoltDB Stats: raft/raft.db ───
   File Size:          16801792 bytes (16.0 MB)
-  DB Logical Size:    376832 bytes (0.4 MB)
-  Free Pages:         34 (139264 bytes, 0.8%)
+  DB Logical Size:    327680 bytes (0.3 MB)
+  Free Pages:         22 (90112 bytes, 0.5%)
   Space Efficiency:   1.4% (0.2 MB live data)
 ─── BoltDB Stats: vault.db ───
   File Size:          131072 bytes (0.1 MB)
@@ -374,7 +374,7 @@ $ ./raft-inspector -d testdata/node0 log -n 3 \
   Index:      78
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 08:41:59.597595133 +0000 UTC  (+0s)
+  AppendedAt: 2026-05-16 08:45:25.732639827 +0000 UTC  (+0s)
   Operations:
     [op=4/restoreCallback]   (0 bytes)
 
@@ -382,19 +382,19 @@ $ ./raft-inspector -d testdata/node0 log -n 3 \
   Index:      79
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 08:42:04.610465636 +0000 UTC  (+5.013s)
+  AppendedAt: 2026-05-16 08:45:30.746260059 +0000 UTC  (+5.014s)
   Operations:
     [op=2/put] core/lock  (36 bytes)
-      [decrypt error: no key for term 1633771875]
+      29d3eec7-e153-1670-e0e1-1079dc64516e
 
 ─── Index 80 (raft/raft.db logs/80) ───
   Index:      80
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 08:42:04.630397817 +0000 UTC  (+5.033s)
+  AppendedAt: 2026-05-16 08:45:30.773829616 +0000 UTC  (+5.041s)
   Operations:
-    [op=2/put] core/leader/aaace2f1-e5f6-7706-9315-b05c0e074b8a  (1508 bytes)
-      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICeTCCAdygAwIBAgIIKTrD1DEDEtIwCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctNjk0Y2RjZWUtOWVhNi0zMWFlLWM2NDgtYjk3ZDE3YzViYWUzMCAXDTI2MDUxNjA4NDEyM1oYDzIwNTYwNTE1MjA0MTU [...truncated, 1475 bytes total]
+    [op=2/put] core/leader/29d3eec7-e153-1670-e0e1-1079dc64516e  (1506 bytes)
+      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICezCCAdygAwIBAgIIXqI4vEFOmhUwCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctYmRkOGIyYzgtYTI3NC1kMzgzLWUwNmEtMTA2YzBlZWFlMGQxMCAXDTI2MDUxNjA4NDQ0OVoYDzIwNTYwNTE1MjA0NTE [...truncated, 1473 bytes total]
 
 
   Index        Sequence number of this entry in the raft log; monotonically increasing. [raft/raft.db]
@@ -411,9 +411,9 @@ Analyze log entry patterns: operation distribution and hot keys.
 ```console
 $ ./raft-inspector -d testdata/node0 log --stats
 ─── Log Statistics ───
-  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 08:42:04.630397817 +0000 UTC
+  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 08:45:30.773829616 +0000 UTC
   Entry Count:        80
-  Total Size:         153466 bytes
+  Total Size:         153464 bytes
   Average Size:       1918 bytes
   Max Size:           23075 bytes
 
@@ -421,22 +421,22 @@ $ ./raft-inspector -d testdata/node0 log --stats
   put                 72
   verifyRead          46
   delete              27
-  commitTx            18
   beginTx             18
+  commitTx            18
   verifyList          7
   restoreCallback     1
 
 ─── Hot Keys (top 10) ───
                                                               37
   core/mounts                                                 14
-  core/mounts/db276413-e73a-0dae-c043-4cf81e9c1896            6
-  logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/p0DLmNzEmm2lYmOKq4Uy6dc37Ci7SHZsZXwoy4x66WnW57WgcCWW66TYrFYtEKKKKKN4
-  logical/c012d973-ac94-0105-800c-442d57ed146b/crls/config    4
-  logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/1TfvJB8066YWJcCN2nimEG8i0wpFXdDC3S5H51G7a3Y35oAtYRACepW0sorwIU1AwXwlFm4dZ4
-  core/mounts/c012d973-ac94-0105-800c-442d57ed146b            4
-  logical/db276413-e73a-0dae-c043-4cf81e9c1896/56c02e31-eaf2-1a8e-cb14-5cef1cc2a4dd/upgrading3
-  logical/db276413-e73a-0dae-c043-4cf81e9c1896/56c02e31-eaf2-1a8e-cb14-5cef1cc2a4dd/metadata/18ybXNr9pJ8KtM8mOJisrel9GDTANxHcu9kRudcC5Id4bjg6x7fFW2euh3
-  logical/db276413-e73a-0dae-c043-4cf81e9c1896/56c02e31-eaf2-1a8e-cb14-5cef1cc2a4dd/versions/c06/9d11bdb0c60cf31d48fb582e8befef6faa7e626adf9f0ea53464627508fa63
+  core/mounts/322760bb-5b0a-e04d-0a66-de097b4de699            6
+  logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/metadata/5kL41q7dCVRP8zqETa5DCbQS1GAUQndszs2DEeEezovYzc5L4mvC72DUE6pnAx/p0EgU8Sj813PYqdepcTlvKOrHZj9Fkwd2N1zRapQGsggzuz1tFWqGpdzb9KYKuvhVtH4
+  core/mounts/599e15d8-634c-25ae-3478-f0f77d3c3674            4
+  logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/metadata/5kL41q7dCVRP8zqETa5DCbQS1GAUQndszs2DEeEezovYzc5L4mvC72DUE6pnAx/1TfFvMlr5n8tAzgPrlUbsTBHKPEY2zgmM8mrrZW5qW3J0OeOIkYqTvYpu63aIQtDsu9AaewAM4
+  logical/599e15d8-634c-25ae-3478-f0f77d3c3674/crls/config    4
+  logical/322760bb-5b0a-e04d-0a66-de097b4de699/17978e10-2583-d300-af24-44b3ec5d7ee8/versions/901/af06fa49e6e0c268b52db2d0ad222eb3eb46c147fb647765754389ddf68b13
+  logical/322760bb-5b0a-e04d-0a66-de097b4de699/17978e10-2583-d300-af24-44b3ec5d7ee8/salt3
+  logical/322760bb-5b0a-e04d-0a66-de097b4de699/17978e10-2583-d300-af24-44b3ec5d7ee8/versions/6c6/3589cf8f92e3fbfc32510a3b4e3da109bd03733a944082b26d4f68e0105293
 
   Time Range         Wall-clock range from oldest to newest log entry's AppendedAt timestamp. [raft/raft.db]
   Entry Count        Total number of log entries in the retained log. [raft/raft.db]
@@ -545,51 +545,51 @@ $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap --keys
 
 ─── State Data ───
 core/audit
-core/auth/3b65c8c9-d9fb-01c4-8dde-5827e628e883
+core/auth/e49a6f0a-54e6-3f69-6a9a-9210c4149731
 core/cluster/local/info
 core/hsm/barrier-unseal-keys
 core/index-header-hmac-key
 core/initialize-lock
 core/keyring
-core/leader/aaace2f1-e5f6-7706-9315-b05c0e074b8a
+core/leader/29d3eec7-e153-1670-e0e1-1079dc64516e
 core/local-audit
-core/local-mounts/f7c6dc1f-257b-530b-ae7e-4990ca327ee4
+core/local-mounts/f03e35f2-5446-a2bf-c042-ffe00861f251
 core/lock
-core/mounts/5fadeb16-40ad-c98a-1b81-43aa3c52cd56
-core/mounts/8e686cfd-516b-7444-19f6-70fa367fd3c7
-core/mounts/90b3b969-7659-397a-27ab-fde58482f2f9
-core/mounts/c012d973-ac94-0105-800c-442d57ed146b
+core/mounts/1bac93a0-b10b-5a7b-41c1-86d3b0de9bfb
+core/mounts/599e15d8-634c-25ae-3478-f0f77d3c3674
+core/mounts/761574d8-c5c0-f7c0-e17b-8b8d6a0b40eb
+core/mounts/7805e7c8-84f0-c698-2803-c9e6324927d1
 core/raft/tls
 core/root-key
 core/seal-config
 core/shamir-kek
 core/versions/2.5.3
 core/wrapping/jwtkey
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/archive/metadata
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/1TfvJB8066YWJcCN2nimEG8i0wpFXdDC3S5H51G7a3Y35oAtYRACepW0sorwIU1AwXwlFm4dZ
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/metadata/5kKR6xZSnoZ3A56phHlAuei2EOBD3YFEnpuf8waiEDfbzGJi6BPyXuuTwV2l7k/p0DLmNzEmm2lYmOKq4Uy6dc37Ci7SHZsZXwoy4x66WnW57WgcCWW66TYrFYtEKKKKKN
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/policy/metadata
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/salt
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/upgrading
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/versions/44c/e668ce4ce9b350907387da6c9f76a5653540564187a7941dbd56047c8e8e9
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/versions/589/d82c75e697d1201aaf362420def62d248acb31f59b6512cbeb8f89e6cd11c
-logical/5fadeb16-40ad-c98a-1b81-43aa3c52cd56/e38d4d1c-ce51-f59f-ad56-d2cb00f337cd/versions/fb7/db51937f0adddc86f6b175cc40907203c0b2685ba1caa5de9e27c2bfdf97d
-logical/8e686cfd-516b-7444-19f6-70fa367fd3c7/oidc_provider/assignment/allow_all
-logical/8e686cfd-516b-7444-19f6-70fa367fd3c7/oidc_provider/provider/default
-logical/8e686cfd-516b-7444-19f6-70fa367fd3c7/oidc_tokens/named_keys/default
-logical/c012d973-ac94-0105-800c-442d57ed146b/certs/62-58-b7-2a-09-60-67-8c-86-24-6a-40-ef-39-b2-17-ca-83-26-d8
-logical/c012d973-ac94-0105-800c-442d57ed146b/config/issuer/baec5240-cdac-4091-d1bc-6437df5c7c2b
-logical/c012d973-ac94-0105-800c-442d57ed146b/config/issuers
-logical/c012d973-ac94-0105-800c-442d57ed146b/config/key/bc60f3ac-5c28-31dd-2ff7-c6bc7d3b2071
-logical/c012d973-ac94-0105-800c-442d57ed146b/config/keys
-logical/c012d973-ac94-0105-800c-442d57ed146b/config/legacyMigrationBundleLog
-logical/c012d973-ac94-0105-800c-442d57ed146b/crls/251faf5f-5fdf-6abe-2a5f-aed8f09b52b9
-logical/c012d973-ac94-0105-800c-442d57ed146b/crls/251faf5f-5fdf-6abe-2a5f-aed8f09b52b9-delta
-logical/c012d973-ac94-0105-800c-442d57ed146b/crls/config
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/certs/4f-c8-37-fe-54-2b-65-df-6b-8a-20-d9-39-dd-6c-0a-43-9d-43-84
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/config/issuer/c1065386-2c18-32ba-8ed6-1de9b6daf01e
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/config/issuers
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/config/key/aa16e1b9-a629-b013-b7ee-224169ecedbe
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/config/keys
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/config/legacyMigrationBundleLog
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/crls/12846e45-da2e-b287-5edb-ece9497726e3
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/crls/12846e45-da2e-b287-5edb-ece9497726e3-delta
+logical/599e15d8-634c-25ae-3478-f0f77d3c3674/crls/config
+logical/761574d8-c5c0-f7c0-e17b-8b8d6a0b40eb/oidc_provider/assignment/allow_all
+logical/761574d8-c5c0-f7c0-e17b-8b8d6a0b40eb/oidc_provider/provider/default
+logical/761574d8-c5c0-f7c0-e17b-8b8d6a0b40eb/oidc_tokens/named_keys/default
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/archive/metadata
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/metadata/5kL41q7dCVRP8zqETa5DCbQS1GAUQndszs2DEeEezovYzc5L4mvC72DUE6pnAx/1TfFvMlr5n8tAzgPrlUbsTBHKPEY2zgmM8mrrZW5qW3J0OeOIkYqTvYpu63aIQtDsu9AaewAM
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/metadata/5kL41q7dCVRP8zqETa5DCbQS1GAUQndszs2DEeEezovYzc5L4mvC72DUE6pnAx/p0EgU8Sj813PYqdepcTlvKOrHZj9Fkwd2N1zRapQGsggzuz1tFWqGpdzb9KYKuvhVtH
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/policy/metadata
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/salt
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/upgrading
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/versions/066/1e6edec632800534d4ef6a86ef5c8f6ecaa62455f8fadef4155bb24100e32
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/versions/307/da6c1e733eba9bcde235371572a6aa827408b3c97e4aa3af61e6101455df2
+logical/7805e7c8-84f0-c698-2803-c9e6324927d1/c7f9747a-7ed6-baec-a101-2121da8299d9/versions/af5/b6e4581ab6723b8ac328ac44b0900bd76ee0f8ea3667d69cee48fb065ac33
 sys/policy/default
 sys/policy/response-wrapping
-sys/token/accessor/fe9938fcf73717c72848491c54043c80b0013ea2
-sys/token/id/he6356411336346ce38bebcc0212a57e281116db6ba087b996d1b00ad10c43b28
+sys/token/accessor/60ff7123d2a2bdf872622434ca7bf436ef691860
+sys/token/id/hf55bd1fee29533ee1a7c3a671c237554005be7cc735b4f06801abdf08abcce62
 sys/token/salt
   Total Keys:     47
   Total Size:     20945 bytes
@@ -619,14 +619,14 @@ $ ./raft-inspector -d testdata/node0 snapshot testdata/backup.snap \
 ─── State Data ───
 core/audit
   [hex] 471f8b08000000000002ffaa562aa92c4855b2524a2c4dc92c51d2514acd2b29ca4c2d56b2ca2bcdc9a9e502040000ffff9bcf028720000000
-core/auth/3b65c8c9-d9fb-01c4-8dde-5827e628e883
-  {"table":"auth","path":"token/","type":"token","description":"token based credentials","uuid":"3b65c8c9-d9fb-01c4-8dde-5827e628e883","backend_aware_uuid":"809d3467-c25b-5dff-540b-7d4b13955534","accessor":"auth_token_1958f0f6","config":{},"options":null,"lo [...truncated, 308 bytes total]
+core/auth/e49a6f0a-54e6-3f69-6a9a-9210c4149731
+  {"table":"auth","path":"token/","type":"token","description":"token based credentials","uuid":"e49a6f0a-54e6-3f69-6a9a-9210c4149731","backend_aware_uuid":"16150077-64aa-7565-0c92-f99f516f0146","accessor":"auth_token_dfeec717","config":{},"options":null,"lo [...truncated, 308 bytes total]
 core/cluster/local/info
-  {"name":"vault-cluster-0d8a313f","id":"9c07032c-da6f-8597-08e4-87e3768f1a02"}
+  {"name":"vault-cluster-7edf984c","id":"e6c1dc42-2ba1-4648-d67f-e36be012e944"}
 core/hsm/barrier-unseal-keys
-  [decrypt error: no key for term 172802381]
+  [decrypt error: skipped: encrypted with seal key, not barrier (protobuf-wrapped BlobInfo)]
 core/index-header-hmac-key
-  8a1163e7-8f69-ad57-a740-d377fe1cdbd0
+  f0bc489f-a88d-5f46-37a4-d26be06ec5ab
 
   [output limited to 5 entries, continuing count...]
   Total Keys:     47
