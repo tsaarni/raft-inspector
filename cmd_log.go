@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
@@ -116,10 +117,10 @@ func cmdLogStats(dbPath string) error {
 			maxSize = size
 		}
 
-		if i == first {
+		if firstTime == "" && !log.AppendedAt.IsZero() {
 			firstTime = log.AppendedAt.String()
 		}
-		if i == last {
+		if !log.AppendedAt.IsZero() {
 			lastTime = log.AppendedAt.String()
 		}
 
@@ -138,7 +139,7 @@ func cmdLogStats(dbPath string) error {
 
 	header.Println("─── Log Statistics ───")
 	label.Printf("  %-20s", "Time Range:")
-	value.Printf("%s → %s\n", firstTime, lastTime)
+	value.Printf("%s - %s\n", firstTime, lastTime)
 	label.Printf("  %-20s", "Entry Count:")
 	value.Printf("%d\n", entryCount)
 	label.Printf("  %-20s", "Total Size:")
@@ -208,21 +209,33 @@ func printLog(log *raft.Log, refTime *time.Time, keys map[uint32][]byte, maxValu
 		value.Printf("%s\n", log.AppendedAt)
 	}
 
-	if log.Type == raft.LogCommand && len(log.Data) > 0 {
-		var ld LogData
-		if err := proto.Unmarshal(log.Data, &ld); err == nil {
-			label.Printf("  Operations:\n")
-			for _, op := range ld.Operations {
-				opColor.Printf("    [op=%d/%s] ", op.OpType, opName(op.OpType))
-				keyCol.Printf("%s", op.Key)
-				value.Printf("  (%s)\n", humanize.Bytes(uint64(len(op.Value))))
-				if keys != nil && len(op.Value) > 0 && op.OpType == 2 {
-					printDecryptedValue(keys, op.Key, op.Value, maxValueLen)
+	switch log.Type {
+	case raft.LogCommand:
+		if len(log.Data) > 0 {
+			var ld LogData
+			if err := proto.Unmarshal(log.Data, &ld); err == nil {
+				label.Printf("  Operations:\n")
+				for _, op := range ld.Operations {
+					opColor.Printf("    [op=%d/%s] ", op.OpType, opName(op.OpType))
+					keyCol.Printf("%s", op.Key)
+					value.Printf("  (%s)\n", humanize.Bytes(uint64(len(op.Value))))
+					if keys != nil && len(op.Value) > 0 && op.OpType == 2 {
+						printDecryptedValue(keys, op.Key, op.Value, maxValueLen)
+					}
 				}
+			} else {
+				fmt.Printf("  Data: (protobuf decode error: %v)\n", err)
 			}
-		} else {
-			fmt.Printf("  Data: (protobuf decode error: %v)\n", err)
 		}
+	case raft.LogConfiguration:
+		cfg := raft.DecodeConfiguration(log.Data)
+		label.Printf("  Servers:\n")
+		for _, s := range cfg.Servers {
+			value.Printf("    - %s (%s) %s\n", s.ID, s.Address, strings.ToLower(s.Suffrage.String()))
+		}
+	case raft.LogNoop:
+		label.Printf("  %-12s", "Note:")
+		dim.Printf("leadership assertion (no data)\n")
 	}
 }
 
