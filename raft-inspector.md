@@ -245,15 +245,15 @@ $ ./raft-inspector status --data-dir testdata/node0
 
 ─── BoltDB Stats: vault.db ───
   File Size:          17 MB (16801792 bytes)
-  DB Logical Size:    377 kB (376832 bytes)
+  DB Logical Size:    418 kB (417792 bytes)
   Page Size:          4.1 kB
-  Free Pages:         78 (320 kB, 1.9%)
+  Free Pages:         89 (364 kB, 2.2%)
   Pending Pages:      0
   Freelist In-Use:    0 B
-  Space Efficiency:   0.3% (57 kB live data)
+  Space Efficiency:   0.3% (53 kB live data)
   Bucket "config":    3 keys, depth 1, branch 0% leaf 0% utilization
-  Bucket "data":      47 keys, depth 2, branch 18% leaf 60% utilization
-  Total:              50 keys, branch 18% leaf 60% utilization
+  Bucket "data":      47 keys, depth 2, branch 16% leaf 67% utilization
+  Total:              50 keys, branch 16% leaf 67% utilization
   Integrity Check:    OK
 
   Current Term       Raft election epoch; increments each time a new leader election occurs. [raft/raft.db]
@@ -327,7 +327,7 @@ $ ./raft-inspector log --data-dir testdata/node0 ~3 \
   Index:      78
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 10:51:53.008395911 +0000 UTC  (+0s)
+  AppendedAt: 2026-06-11 12:28:59.774743649 +0000 UTC  (+0s)
   Operations:
     [op=4/restoreCallback]   (0 B)
 
@@ -335,19 +335,19 @@ $ ./raft-inspector log --data-dir testdata/node0 ~3 \
   Index:      79
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 10:51:58.021096137 +0000 UTC  (+5.013s)
+  AppendedAt: 2026-06-11 12:29:04.789524158 +0000 UTC  (+5.015s)
   Operations:
     [op=2/put] core/lock  (36 B)
-      78ff74e1-108d-9a33-a5d5-8299320f9f2c
+      d72aa3e8-d545-895a-81eb-b0bda4b9f9b5
 
 ─── Index 80 (raft/raft.db logs/80) ───
   Index:      80
   Term:       3
   Type:       LogCommand
-  AppendedAt: 2026-05-16 10:51:58.045547021 +0000 UTC  (+5.037s)
+  AppendedAt: 2026-06-11 12:29:04.819584922 +0000 UTC  (+5.045s)
   Operations:
-    [op=2/put] core/leader/78ff74e1-108d-9a33-a5d5-8299320f9f2c  (1.5 kB)
-      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICezCCAdygAwIBAgIIZtPKxc36dYAwCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctNGI1ODA4NTMtOWNhOS03MDVlLWZlMjAtNjIwYmIzNTJlNjM5MCAXDTI2MDUxNjEwNTExNloYDzIwNTYwNTE1MjI1MTQ [...truncated, 1.5 kB total]
+    [op=2/put] core/leader/d72aa3e8-d545-895a-81eb-b0bda4b9f9b5  (1.5 kB)
+      {"redirect_addr":"http://127.0.0.1:8200","cluster_addr":"https://127.0.0.1:8201","cluster_cert":"MIICezCCAdygAwIBAgIIG4szFgF4kmIwCgYIKoZIzj0EAwQwMjEwMC4GA1UEAxMnZnctNDQxNjA1ZWQtY2Q4MS05ZDAwLTc0M2YtMWU3ZGUwYTBiZmE2MCAXDTI2MDYxMTEyMjgyM1oYDzIwNTYwNjExMDAyODU [...truncated, 1.5 kB total]
 
 
   Index        Sequence number of this entry in the raft log; monotonically increasing. [raft/raft.db]
@@ -364,7 +364,7 @@ Analyze log entry patterns: operation distribution and hot keys.
 ```console
 $ ./raft-inspector log --data-dir testdata/node0 --stats
 ─── Log Statistics ───
-  Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 10:51:58.045547021 +0000 UTC
+  Time Range:         2026-06-11 12:28:52.4693965 +0000 UTC - 2026-06-11 12:29:04.819584922 +0000 UTC
   Entry Count:        80
   Total Size:         154 kB
   Average Size:       1.9 kB
@@ -380,16 +380,16 @@ $ ./raft-inspector log --data-dir testdata/node0 --stats
   restoreCallback     1
 
 ─── Hot Keys (top 10) ───
-  37  
   14  core/mounts
-  6  core/mounts/36008ebf-745c-f89e-c3fc-b71a489cefae
-  4  core/mounts/02b96aff-18b1-2058-a7a6-3320ee91b1cc
-  4  logical/d72378f1-8d8d-864c-4e8c-f49532af305d/c5f16006-f343-78c6-997e-fc5c89609c7b/metadata/5kL2TmUHjZlqOHJPdPIcswjpnS9n1j8WLuCEPAlUYrTy6ePBUheoQjdHdYuRx9/1TfEWEXinZ7RLUIfoOdivduzeT4hy7otxI0twnWRM8HDBaqYGYhBayXQYBRDHOdkNixNod0S0
-  4  logical/d72378f1-8d8d-864c-4e8c-f49532af305d/c5f16006-f343-78c6-997e-fc5c89609c7b/metadata/5kL2TmUHjZlqOHJPdPIcswjpnS9n1j8WLuCEPAlUYrTy6ePBUheoQjdHdYuRx9/p0CRY3FhsSYJ0ZnROxa43VS0NfZ4kVgGGx0hh26TvtOLf06qNtEzf4Y9Tv1Ut8dRBGl
-  4  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/crls/config
-  3  logical/36008ebf-745c-f89e-c3fc-b71a489cefae/d29a2e7b-8435-e5e0-b45c-be27325dc32f/metadata/18yb1ReouGNmdFf7MEPRGAt1FZ2XdIdm2hzu0ig8koSZ5ekYVJjocXlQF
-  3  logical/36008ebf-745c-f89e-c3fc-b71a489cefae/d29a2e7b-8435-e5e0-b45c-be27325dc32f/versions/695/277715a99e71ba403c1b15d6ee7bc2bb88a329cf77e3dac41d0b90b9b569f
-  3  logical/36008ebf-745c-f89e-c3fc-b71a489cefae/d29a2e7b-8435-e5e0-b45c-be27325dc32f/versions/420/64d1a2e8705cd71979c30a50f8037c7837c6578b5c9deb6f06df2e89d0b46
+  6  core/mounts/11e5df7d-51ea-0c27-2ec0-aefe40cdf556
+  4  logical/6ff33cfa-d2f7-cdf9-cd74-edbcafdca38d/067329e1-b6c0-7a47-c27e-91bb6e65a19b/metadata/5kKRqp5nNsgfRyWo7K2lBhPGhPLXjWFSTTElaQ9oHOwGxnyVZ5DSkZ30igXcUV/1TfwinoMImnxEuZJ9bSRcguwrdTQW2Nuncce0nf1gCLt9t9J8Aa5TihqWp05SZkWdnPt2jJGz
+  4  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/crls/config
+  4  core/mounts/c844712c-9189-1deb-dea4-ee1a29f8c1bd
+  4  logical/6ff33cfa-d2f7-cdf9-cd74-edbcafdca38d/067329e1-b6c0-7a47-c27e-91bb6e65a19b/metadata/5kKRqp5nNsgfRyWo7K2lBhPGhPLXjWFSTTElaQ9oHOwGxnyVZ5DSkZ30igXcUV/p0CfjT3cVDqUM1OvvTjz3NrxiQgNkOeIDYy81kkFJaSxZsI2To1zr2CKDcZAv80WzUN
+  3  logical/11e5df7d-51ea-0c27-2ec0-aefe40cdf556/e588ec4e-0a88-925b-c20d-dc761986917c/versions/e7a/f8284e231e68763934d419087df751a15fd6a1cd54dbbd34053e642677af9
+  3  logical/11e5df7d-51ea-0c27-2ec0-aefe40cdf556/e588ec4e-0a88-925b-c20d-dc761986917c/metadata/18y9btRhRs1MuxH5Nb0Y1fr8xkRsAcPNaxvZ5YnqiLRFvL6c2kFQfvDJ3
+  3  logical/11e5df7d-51ea-0c27-2ec0-aefe40cdf556/e588ec4e-0a88-925b-c20d-dc761986917c/versions/b19/b5328b88577ff8b3ad25eb20002bb1bf74df98c87d13d6c46cbd9c444eeb8
+  3  logical/11e5df7d-51ea-0c27-2ec0-aefe40cdf556/e588ec4e-0a88-925b-c20d-dc761986917c/versions/959/12af329d4c0f4a4cae649401cd93dc300ae08bbb7245c519926423bb4c175
 
   Time Range         Wall-clock range from oldest to newest log entry's AppendedAt timestamp. [raft/raft.db]
   Entry Count        Total number of log entries in the retained log. [raft/raft.db]
@@ -408,21 +408,21 @@ $ ./raft-inspector fsm --data-dir testdata/node0
   Total Keys:     47
 
 ─── Top-level Key Segments ───
-  core            21
   logical         21
+  core            21
   sys             5
 
 ─── Largest Keys ───
-     2.8 kB  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/config/issuer/4afb2c41-e6ab-ea4f-01e4-e815e53fdc78
+     2.8 kB  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/config/issuer/d67ffbed-f306-7cfb-317d-87a6df4654ab
      2.7 kB  sys/policy/default
-     1.8 kB  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/config/key/b9280dce-c5ee-1ff6-e5db-fea3ca8a1620
+     1.8 kB  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/config/key/07944346-132e-10e8-98c0-f8d7d7cd737d
      1.7 kB  core/raft/tls
-     1.5 kB  core/leader/78ff74e1-108d-9a33-a5d5-8299320f9f2c
-      908 B  logical/d72378f1-8d8d-864c-4e8c-f49532af305d/c5f16006-f343-78c6-997e-fc5c89609c7b/policy/metadata
-      836 B  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/certs/6d-a3-4a-eb-36-e0-13-82-89-3f-88-c2-08-ce-43-bf-91-4b-58-a6
-      574 B  logical/d72378f1-8d8d-864c-4e8c-f49532af305d/c5f16006-f343-78c6-997e-fc5c89609c7b/archive/metadata
-      534 B  core/wrapping/jwtkey
-      528 B  sys/token/id/h0e97050e9c46cabba52938865f6f59d0c651e48b1d6dc5fab79759bf98231abc
+     1.5 kB  core/leader/d72aa3e8-d545-895a-81eb-b0bda4b9f9b5
+      908 B  logical/6ff33cfa-d2f7-cdf9-cd74-edbcafdca38d/067329e1-b6c0-7a47-c27e-91bb6e65a19b/policy/metadata
+      836 B  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/certs/5d-e0-05-9a-e5-c6-b8-81-0a-f7-70-03-27-ea-b4-dd-0d-00-29-42
+      574 B  logical/6ff33cfa-d2f7-cdf9-cd74-edbcafdca38d/067329e1-b6c0-7a47-c27e-91bb6e65a19b/archive/metadata
+      533 B  core/wrapping/jwtkey
+      528 B  sys/token/id/h993db5180bc415b415536e4b424a6184ce185f073168b66b58d0864dd4f96563
 
   Keys are plaintext storage paths from the vault.db data bucket; values are AES-GCM encrypted. [vault.db]
   Top-level segments correspond to subsystems (core/, sys/, logical/) and their key counts. [vault.db]
@@ -482,16 +482,16 @@ $ ./raft-inspector snapshot testdata/backup.snap
   sys             5
 
 ─── Largest Keys ───
-     2.8 kB  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/config/issuer/4afb2c41-e6ab-ea4f-01e4-e815e53fdc78
+     2.8 kB  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/config/issuer/d67ffbed-f306-7cfb-317d-87a6df4654ab
      2.7 kB  sys/policy/default
-     1.8 kB  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/config/key/b9280dce-c5ee-1ff6-e5db-fea3ca8a1620
+     1.8 kB  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/config/key/07944346-132e-10e8-98c0-f8d7d7cd737d
      1.7 kB  core/raft/tls
-     1.5 kB  core/leader/78ff74e1-108d-9a33-a5d5-8299320f9f2c
-      908 B  logical/d72378f1-8d8d-864c-4e8c-f49532af305d/c5f16006-f343-78c6-997e-fc5c89609c7b/policy/metadata
-      836 B  logical/02b96aff-18b1-2058-a7a6-3320ee91b1cc/certs/6d-a3-4a-eb-36-e0-13-82-89-3f-88-c2-08-ce-43-bf-91-4b-58-a6
-      574 B  logical/d72378f1-8d8d-864c-4e8c-f49532af305d/c5f16006-f343-78c6-997e-fc5c89609c7b/archive/metadata
-      534 B  core/wrapping/jwtkey
-      528 B  sys/token/id/h0e97050e9c46cabba52938865f6f59d0c651e48b1d6dc5fab79759bf98231abc
+     1.5 kB  core/leader/d72aa3e8-d545-895a-81eb-b0bda4b9f9b5
+      908 B  logical/6ff33cfa-d2f7-cdf9-cd74-edbcafdca38d/067329e1-b6c0-7a47-c27e-91bb6e65a19b/policy/metadata
+      836 B  logical/c844712c-9189-1deb-dea4-ee1a29f8c1bd/certs/5d-e0-05-9a-e5-c6-b8-81-0a-f7-70-03-27-ea-b4-dd-0d-00-29-42
+      574 B  logical/6ff33cfa-d2f7-cdf9-cd74-edbcafdca38d/067329e1-b6c0-7a47-c27e-91bb6e65a19b/archive/metadata
+      533 B  core/wrapping/jwtkey
+      528 B  sys/token/id/h993db5180bc415b415536e4b424a6184ce185f073168b66b58d0864dd4f96563
 
   Index            Raft log index at which this snapshot was taken. [meta.json]
   Term             Raft term at the time of snapshot. [meta.json]

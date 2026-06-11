@@ -129,7 +129,9 @@ func cmdLogStats(dbPath string) error {
 			if err := proto.Unmarshal(log.Data, &ld); err == nil {
 				for _, op := range ld.Operations {
 					opCounts[opName(op.OpType)]++
-					keyCounts[op.Key]++
+					if op.Key != "" {
+						keyCounts[op.Key]++
+					}
 				}
 			}
 		}
