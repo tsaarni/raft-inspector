@@ -4,15 +4,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	humanize "github.com/dustin/go-humanize"
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/proto"
 )
 
-func cmdStatus(dataDir string) error {
-	raftPath := filepath.Join(dataDir, "raft", "raft.db")
+func cmdStatus(raftPath, vaultPath string) error {
 
 	store, raftTmp, err := openStore(raftPath)
 	if err != nil {
@@ -48,14 +46,13 @@ func cmdStatus(dataDir string) error {
 	store.Close()
 
 	// Vault.db FSM state
-	vaultPath := filepath.Join(dataDir, "vault.db")
 	fi, statErr := os.Stat(vaultPath)
 	if statErr != nil || fi.Size() == 0 {
 		fmt.Fprintf(os.Stderr, "\nvault.db is empty or missing (node may not have been initialized yet)\n")
 		return nil
 	}
 
-	db, vaultTmp, err := openVaultDB(dataDir)
+	db, vaultTmp, err := openVaultDB(vaultPath)
 	if err != nil {
 		return err
 	}

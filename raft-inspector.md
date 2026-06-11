@@ -206,7 +206,7 @@ Success! Disabled the secrets engine (if it existed) at: tmp/
 Combined health overview reading both `raft/raft.db` and `vault.db`. Note the Space Efficiency metric showing how much of the file is live data, and the estimated size after snapshot restore.
 
 ```console
-$ ./raft-inspector status testdata/node0
+$ ./raft-inspector status --data-dir testdata/node0
 ─── raft/raft.db stable store ───
   Current Term:       3
   First Log Index:    1
@@ -300,7 +300,7 @@ $ docker exec -e BAO_ADDR=http://127.0.0.1:8200 bao-node0 \
 ```
 
 ```console
-$ ./raft-inspector status testdata/node0 2>&1 \
+$ ./raft-inspector status --data-dir testdata/node0 2>&1 \
     | grep -E '(─── BoltDB|File Size:|DB Logical Size:|Free Pages:|Space Efficiency:)'
 ─── BoltDB Stats: raft/raft.db ───
   File Size:          17 MB (16801792 bytes)
@@ -319,7 +319,7 @@ $ ./raft-inspector status testdata/node0 2>&1 \
 Show log entries with decrypted values. The `put` operations reveal the actual stored data.
 
 ```console
-$ ./raft-inspector log testdata/node0 ~3 \
+$ ./raft-inspector log --data-dir testdata/node0 ~3 \
     --unseal-key-file testdata/init.json
 ─── raft/raft.db logs bucket (entries 1 to 80, showing 78 to 80) ───
 
@@ -362,7 +362,7 @@ $ ./raft-inspector log testdata/node0 ~3 \
 Analyze log entry patterns: operation distribution and hot keys.
 
 ```console
-$ ./raft-inspector log testdata/node0 --stats
+$ ./raft-inspector log --data-dir testdata/node0 --stats
 ─── Log Statistics ───
   Time Range:         0001-01-01 00:00:00 +0000 UTC → 2026-05-16 10:51:58.045547021 +0000 UTC
   Entry Count:        80
@@ -403,7 +403,7 @@ $ ./raft-inspector log testdata/node0 --stats
 Show total key count, top-level key path segments, and largest keys in the FSM data store (`vault.db`).
 
 ```console
-$ ./raft-inspector fsm testdata/node0
+$ ./raft-inspector fsm --data-dir testdata/node0
 ─── State Data ───
   Total Keys:     47
 
@@ -434,7 +434,7 @@ $ ./raft-inspector fsm testdata/node0
 List FSM keys matching a prefix. Shows encrypted value size after each key.
 
 ```console
-$ ./raft-inspector fsm testdata/node0 --prefix sys/policy/
+$ ./raft-inspector fsm --data-dir testdata/node0 --prefix sys/policy/
 ─── Keys matching prefix: sys/policy/ ───
 sys/policy/default  (2.7 kB)
 sys/policy/response-wrapping  (348 B)
@@ -446,7 +446,7 @@ sys/policy/response-wrapping  (348 B)
 Show decrypted values for keys matching a prefix.
 
 ```console
-$ ./raft-inspector fsm testdata/node0 --prefix sys/policy/ \
+$ ./raft-inspector fsm --data-dir testdata/node0 --prefix sys/policy/ \
     --unseal-key-file testdata/init.json
 ─── Keys matching prefix: sys/policy/ ───
 sys/policy/default  (2.7 kB)

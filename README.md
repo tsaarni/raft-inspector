@@ -19,17 +19,39 @@ or install
 go install github.com/tsaarni/raft-inspector@latest
 ```
 
+or run directly
+
+```bash
+go run github.com/tsaarni/raft-inspector@latest status --data-dir /opt/openbao/data
+```
+
 ## Usage
 
 ```
-raft-inspector status <data-dir>
-raft-inspector log <data-dir> [range] [--stats] \
-    [--unseal-key-file <path>]
-raft-inspector fsm <data-dir> [--prefix <prefix>] \
-    [--unseal-key-file <path>] [--limit <n>]
-raft-inspector snapshot <file> [--prefix <prefix>] \
-    [--unseal-key-file <path>] [--limit <n>]
+raft-inspector status --data-dir <path>
+raft-inspector log --data-dir <path> [range] [--stats]
+raft-inspector fsm --data-dir <path> [--prefix <prefix>] [--limit <n>]
+raft-inspector snapshot <file> [--prefix <prefix>] [--limit <n>]
 ```
+
+### Data source flags
+
+All commands except `snapshot` require one of these (mutually exclusive):
+
+| Flag | Description |
+|------|-------------|
+| `--data-dir` | OpenBao data directory (expects `raft/raft.db` and `vault.db` inside). |
+| `--raft-db` | Path to `raft.db` directly. |
+| `--vault-db` | Path to `vault.db` directly. |
+
+### Decryption flags
+
+Available on `log`, `fsm`, and `snapshot` commands. Supports Shamir seal with threshold=1.
+
+| Flag | Description |
+|------|-------------|
+| `--unseal-key-file` | JSON file from `bao operator init -format=json` (uses `unseal_keys_b64[0]`). |
+| `--unseal-key` | Unseal key as hex or base64 string. |
 
 ### Global flags
 
@@ -39,38 +61,49 @@ raft-inspector snapshot <file> [--prefix <prefix>] \
 
 ### Commands
 
-**status** — Combined health overview reading both `raft/raft.db` and `vault.db`.
-
-| Flag | Description |
-|------|-------------|
-| `<data-dir>` | Path to the OpenBao data directory (positional, required). |
+**status** — Health overview from both `raft/raft.db` and `vault.db`.
 
 **log** — List or inspect raft log entries with decoded operations.
 
 | Flag | Description |
 |------|-------------|
-| `<data-dir>` | Path to the OpenBao data directory (positional, required). |
-| `[range]` | Index or range: `5` (single entry), `1..10` (index 1 to 10), `~10` (last 10 entries). Without this, all entries are shown. |
-| `--stats` | Show log statistics: operation distribution and hot keys. |
-| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
+| `[range]` | `5` (single), `1..10` (range), `~10` (last 10). Omit for all entries. |
+| `--stats` | Show operation distribution and hot keys instead of entries. |
 
-**fsm** — Inspect the FSM state (`vault.db` data bucket). Shows total key count, top-level path segments, and largest keys by default.
+**fsm** — Inspect the FSM state (`vault.db` data bucket).
 
 | Flag | Description |
 |------|-------------|
-| `<data-dir>` | Path to the OpenBao data directory (positional, required). |
-| `--prefix` | List keys matching a prefix (shows encrypted size per key). |
-| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
-| `--limit` | Max number of keys to display (0=unlimited). |
+| `--prefix` | List keys matching prefix (shows size per key). Without this, shows summary. |
+| `--limit` | Max keys to display (0=unlimited). |
 
-**snapshot** — Inspect an external snapshot archive. Shows metadata, checksum verification, top-level path segments, and largest keys by default.
+**snapshot** — Inspect an external snapshot archive.
 
 | Flag | Description |
 |------|-------------|
-| `<file>` | Path to the snapshot file (positional argument, required). |
-| `--prefix` | List keys matching a prefix (shows encrypted size per key). |
-| `--unseal-key-file` | Path to the init JSON file produced by `bao operator init`. Enables decryption. |
-| `--limit` | Max number of keys to display (0=unlimited). |
+| `<file>` | Snapshot file path (positional, required). |
+| `--prefix` | List keys matching prefix (shows size per key). Without this, shows summary. |
+| `--limit` | Max keys to display (0=unlimited). |
+
+### Examples
+
+```bash
+# Standard OpenBao directory layout
+raft-inspector status --data-dir /opt/openbao/data
+raft-inspector log --data-dir /opt/openbao/data ~10
+raft-inspector log --data-dir /opt/openbao/data --stats
+raft-inspector fsm --data-dir /opt/openbao/data --prefix core/
+
+# Direct file paths (files copied from another host, etc.)
+raft-inspector status --raft-db ./raft.db --vault-db ./vault.db
+raft-inspector log --raft-db ./raft.db ~10
+raft-inspector fsm --vault-db ./vault.db --prefix sys/policy/
+
+# Decryption
+raft-inspector log --data-dir /data --unseal-key-file init.json ~5
+raft-inspector fsm --vault-db ./vault.db --prefix core/ \
+    --unseal-key "cdwZpMwMDTHrygVoyrR8GtCFO5oAoT3+1v8MAD2UVrU="
+```
 
 ## How the database files work
 
@@ -94,17 +127,6 @@ Integrated storage uses two database files per node:
 - **`data`** — all application state (secrets, leases, policies, mounts, auth config, and internal cryptographic material like the keyring and unseal keys under `core/`).
 - **`config`** — FSM metadata: last applied log index/term, cluster membership, and this node's desired role (voter/nonvoter).
 
-
-## Decryption
-
-The tool supports decryption with Shamir seal (threshold=1 only). Passing `--unseal-key-file` enables decryption. The init JSON file must match the format produced by `bao operator init -format=json`:
-
-```json
-{
-  "unseal_keys_b64": ["..."],
-  "unseal_threshold": 1
-}
-```
 
 ## Field descriptions
 

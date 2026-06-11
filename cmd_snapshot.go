@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-func cmdSnapshot(file string, prefix string, initFile string, maxValueLen int, limit int) error {
+func cmdSnapshot(file string, prefix string, rootKey []byte, maxValueLen int, limit int) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return fmt.Errorf("opening snapshot: %w", err)
@@ -57,7 +57,7 @@ func cmdSnapshot(file string, prefix string, initFile string, maxValueLen int, l
 			h := sha256.Sum256(sha256sums)
 			checksums[name] = hex.EncodeToString(h[:])
 		case "state.bin":
-			if err := processStateBin(tr, checksums, prefix, initFile, maxValueLen, limit, metaJSON, sha256sums); err != nil {
+			if err := processStateBin(tr, checksums, prefix, rootKey, maxValueLen, limit, metaJSON, sha256sums); err != nil {
 				return err
 			}
 			return nil
@@ -73,7 +73,7 @@ func cmdSnapshot(file string, prefix string, initFile string, maxValueLen int, l
 	return nil
 }
 
-func processStateBin(r io.Reader, checksums map[string]string, prefix string, initFile string, maxValueLen int, limit int, metaJSON, sha256sums []byte) error {
+func processStateBin(r io.Reader, checksums map[string]string, prefix string, rootKey []byte, maxValueLen int, limit int, metaJSON, sha256sums []byte) error {
 	hasher := sha256.New()
 	tee := io.TeeReader(r, hasher)
 	data, err := io.ReadAll(tee)
@@ -83,11 +83,7 @@ func processStateBin(r io.Reader, checksums map[string]string, prefix string, in
 	checksums["state.bin"] = hex.EncodeToString(hasher.Sum(nil))
 
 	var keys map[uint32][]byte
-	if initFile != "" {
-		rootKey, err := loadRootKey(initFile)
-		if err != nil {
-			return fmt.Errorf("loading root key: %w", err)
-		}
+	if rootKey != nil {
 		keys, err = loadKeyringFromStateBin(rootKey, data)
 		if err != nil {
 			return fmt.Errorf("loading keyring from snapshot: %w", err)

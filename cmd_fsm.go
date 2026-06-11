@@ -10,8 +10,8 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func cmdFsm(dataDir string, prefix string, initFile string, maxValueLen int, limit int) error {
-	db, tmpPath, err := openVaultDB(dataDir)
+func cmdFsm(vaultPath string, prefix string, rootKey []byte, maxValueLen int, limit int) error {
+	db, tmpPath, err := openVaultDB(vaultPath)
 	if err != nil {
 		return err
 	}
@@ -19,11 +19,7 @@ func cmdFsm(dataDir string, prefix string, initFile string, maxValueLen int, lim
 	defer os.Remove(tmpPath)
 
 	var keys map[uint32][]byte
-	if initFile != "" {
-		rootKey, err := loadRootKey(initFile)
-		if err != nil {
-			return fmt.Errorf("loading root key: %w", err)
-		}
+	if rootKey != nil {
 		keys, err = loadKeyring(rootKey, db)
 		if err != nil {
 			return fmt.Errorf("loading keyring: %w", err)

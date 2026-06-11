@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
@@ -68,8 +67,7 @@ func openStore(path string) (*raftboltdb.BoltStore, string, error) {
 	return store, tmpPath, nil
 }
 
-func openVaultDB(dataDir string) (*bolt.DB, string, error) {
-	vaultPath := filepath.Join(dataDir, "vault.db")
+func openVaultDB(vaultPath string) (*bolt.DB, string, error) {
 	fi, err := os.Stat(vaultPath)
 	if err != nil || fi.Size() == 0 {
 		return nil, "", fmt.Errorf("vault.db is empty or missing (node may not have been initialized yet)")

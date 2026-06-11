@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,19 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/protobuf/encoding/protowire"
 )
+
+func decodeKeyValue(s string) ([]byte, error) {
+	if key, err := hex.DecodeString(s); err == nil && len(key) == 32 {
+		return key, nil
+	}
+	if key, err := base64.StdEncoding.DecodeString(s); err == nil && len(key) == 32 {
+		return key, nil
+	}
+	if key, err := base64.RawStdEncoding.DecodeString(s); err == nil && len(key) == 32 {
+		return key, nil
+	}
+	return nil, fmt.Errorf("cannot decode key: expected 64-char hex or base64-encoded 32-byte key")
+}
 
 func loadRootKey(initFile string) ([]byte, error) {
 	data, err := os.ReadFile(initFile)
