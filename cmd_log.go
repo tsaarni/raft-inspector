@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func cmdLogList(dbPath string, startIdx, endIdx uint64, keys map[uint32][]byte, maxValueLen int) error {
+func cmdLogList(dbPath string, sel selector, keys map[uint32][]byte, maxValueLen int) error {
 	store, tmpPath, err := openStore(dbPath)
 	if err != nil {
 		return err
@@ -25,13 +25,12 @@ func cmdLogList(dbPath string, startIdx, endIdx uint64, keys map[uint32][]byte, 
 	last, _ := store.LastIndex()
 
 	start, end := first, last
-	if startIdx != 0 {
-		// Explicit range: "START-END"
-		start, end = startIdx, endIdx
-	} else if endIdx != 0 {
-		// "last N" mode: startIdx==0, endIdx==N
-		if last-first+1 > endIdx {
-			start = last - endIdx + 1
+	switch sel.kind {
+	case selRange:
+		start, end = sel.start, sel.end
+	case selTail:
+		if last-first+1 > sel.tail {
+			start = last - sel.tail + 1
 		}
 	}
 
@@ -48,6 +47,14 @@ func cmdLogList(dbPath string, startIdx, endIdx uint64, keys map[uint32][]byte, 
 				fmt.Printf("Index %d: error: %v\n", i, err)
 			}
 			continue
+		}
+		if sel.kind == selDate && !log.AppendedAt.IsZero() {
+			if !sel.since.IsZero() && log.AppendedAt.Before(sel.since) {
+				continue
+			}
+			if !sel.until.IsZero() && log.AppendedAt.After(sel.until) {
+				continue
+			}
 		}
 		if refTime == nil && !log.AppendedAt.IsZero() {
 			t := log.AppendedAt
@@ -89,7 +96,7 @@ func cmdLogSingle(dbPath string, index uint64, keys map[uint32][]byte, maxValueL
 	return nil
 }
 
-func cmdLogStats(dbPath string) error {
+func cmdLogStats(dbPath string, sel selector) error {
 	store, tmpPath, err := openStore(dbPath)
 	if err != nil {
 		return err
@@ -100,16 +107,37 @@ func cmdLogStats(dbPath string) error {
 	first, _ := store.FirstIndex()
 	last, _ := store.LastIndex()
 
+	start, end := first, last
+	switch sel.kind {
+	case selRange:
+		start, end = sel.start, sel.end
+	case selTail:
+		if last-first+1 > sel.tail {
+			start = last - sel.tail + 1
+		}
+	}
+
 	opCounts := map[string]int{}
 	keyCounts := map[string]int{}
-	var totalSize, maxSize uint64
+	var totalSize, maxSize, entryCount uint64
 	var firstTime, lastTime string
 
-	for i := first; i <= last; i++ {
+	for i := start; i <= end; i++ {
 		var log raft.Log
 		if err := store.GetLog(i, &log); err != nil {
 			continue
 		}
+
+		if sel.kind == selDate && !log.AppendedAt.IsZero() {
+			if !sel.since.IsZero() && log.AppendedAt.Before(sel.since) {
+				continue
+			}
+			if !sel.until.IsZero() && log.AppendedAt.After(sel.until) {
+				continue
+			}
+		}
+
+		entryCount++
 
 		size := uint64(len(log.Data))
 		totalSize += size
@@ -136,8 +164,6 @@ func cmdLogStats(dbPath string) error {
 			}
 		}
 	}
-
-	entryCount := last - first + 1
 
 	header.Println("─── Log Statistics ───")
 	label.Printf("  %-20s", "Time Range:")

@@ -67,7 +67,7 @@ Available on `log`, `fsm`, and `snapshot` commands. Supports Shamir seal with th
 
 | Flag | Description |
 |------|-------------|
-| `[range]` | `5` (single), `1..10` (range), `~10` (last 10). Omit for all entries. |
+| `[range]` | `5` (single), `1..10` (range), `~10` (last 10), `2026-06-15..2026-06-16` (date range), `2026-06-15..` (from date), `..2026-06-16` (until date). Omit for all entries. |
 | `--stats` | Show operation distribution and hot keys instead of entries. |
 
 **fsm** — Inspect the FSM state (`vault.db` data bucket).
