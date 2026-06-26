@@ -1,19 +1,10 @@
 # raft-inspector
 
-> [!NOTE]
-> This codebase is LLM-generated.
-
-Developer tool for offline inspection of OpenBao raft storage. Reads `raft.db` and `vault.db` directly without requiring a running server. Works while the server is running (copies files to bypass locks).
+Developer tool for offline inspection of OpenBao or Hashicorp Vault raft storage. Reads `raft.db` and `vault.db` directly without requiring a running server. Works while the server is running (copies files to bypass locks).
 
 See [raft-inspector.md](raft-inspector.md) for a full walkthrough with example output against a 3-node cluster.
 
-## Build
-
-```bash
-go build -o raft-inspector .
-```
-
-or install
+## Install
 
 ```bash
 go install github.com/tsaarni/raft-inspector@latest
@@ -28,81 +19,63 @@ go run github.com/tsaarni/raft-inspector@latest status --data-dir /opt/openbao/d
 ## Usage
 
 ```
-raft-inspector status --data-dir <path>
-raft-inspector log --data-dir <path> [range] [--stats]
-raft-inspector fsm --data-dir <path> [--prefix <prefix>] [--limit <n>]
-raft-inspector snapshot <file> [--prefix <prefix>] [--limit <n>]
+raft-inspector status      Health overview from raft/raft.db and vault.db
+raft-inspector log         List or inspect raft log entries with decoded operations
+raft-inspector fsm         Inspect the FSM state (vault.db data bucket)
+raft-inspector snapshot    Inspect an external snapshot archive
 ```
 
-### Data source flags
+### Flags
 
-All commands except `snapshot` require one of these (mutually exclusive):
+**Data source** (mutually exclusive, for status/log/fsm):
 
-| Flag | Description |
-|------|-------------|
-| `--data-dir` | OpenBao data directory (expects `raft/raft.db` and `vault.db` inside). |
-| `--raft-db` | Path to `raft.db` directly. |
-| `--vault-db` | Path to `vault.db` directly. |
+    --data-dir PATH        Data directory (expects raft/raft.db and vault.db inside)
+    --raft-db PATH         Path to raft.db directly
+    --vault-db PATH        Path to vault.db directly
 
-### Decryption flags
+**Decryption** (Shamir seal threshold=1, for log/fsm/snapshot):
 
-Available on `log`, `fsm`, and `snapshot` commands. Supports Shamir seal with threshold=1.
+    --unseal-key-file FILE JSON file from `bao operator init -format=json`
+    --unseal-key KEY       Unseal key as hex or base64 string
 
-| Flag | Description |
-|------|-------------|
-| `--unseal-key-file` | JSON file from `bao operator init -format=json` (uses `unseal_keys_b64[0]`). |
-| `--unseal-key` | Unseal key as hex or base64 string. |
+**log:**
 
-### Global flags
+    [range]                Entry selector: N (single index), N..M (index range),
+                           ~N (last N entries), or date ranges:
+                             5                      Single entry by index
+                             100..110               Index range (inclusive)
+                             ~10                    Last 10 entries
+                             2024-01-01..2024-01-31 Date range (inclusive)
+                             2024-06-01..           From date to end of log
+                             ..2024-01-31           From start of log to date
+                           Dates: YYYY-MM-DD or RFC 3339 (2024-01-15T10:30:00Z)
+    --stats                Show operation distribution and hot keys instead of entries
 
-| Flag | Description |
-|------|-------------|
-| `--max-value-length` | Max bytes of decrypted value to display (default 256, 0=unlimited). |
+**fsm / snapshot:**
 
-### Commands
+    <file>                 Snapshot file path (positional, required for snapshot)
+    --prefix PREFIX        List keys matching prefix (shows size per key)
+    --limit N              Max keys to display (0=unlimited)
 
-**status** — Health overview from both `raft/raft.db` and `vault.db`.
+**Global:**
 
-**log** — List or inspect raft log entries with decoded operations.
-
-| Flag | Description |
-|------|-------------|
-| `[range]` | `5` (single), `1..10` (range), `~10` (last 10), `2026-06-15..2026-06-16` (date range), `2026-06-15..` (from date), `..2026-06-16` (until date). Omit for all entries. |
-| `--stats` | Show operation distribution and hot keys instead of entries. |
-
-**fsm** — Inspect the FSM state (`vault.db` data bucket).
-
-| Flag | Description |
-|------|-------------|
-| `--prefix` | List keys matching prefix (shows size per key). Without this, shows summary. |
-| `--limit` | Max keys to display (0=unlimited). |
-
-**snapshot** — Inspect an external snapshot archive.
-
-| Flag | Description |
-|------|-------------|
-| `<file>` | Snapshot file path (positional, required). |
-| `--prefix` | List keys matching prefix (shows size per key). Without this, shows summary. |
-| `--limit` | Max keys to display (0=unlimited). |
+    --max-value-length N   Max bytes of decrypted value to display (default 256, 0=unlimited)
 
 ### Examples
 
 ```bash
-# Standard OpenBao directory layout
 raft-inspector status --data-dir /opt/openbao/data
 raft-inspector log --data-dir /opt/openbao/data ~10
 raft-inspector log --data-dir /opt/openbao/data --stats
 raft-inspector fsm --data-dir /opt/openbao/data --prefix core/
 
-# Direct file paths (files copied from another host, etc.)
+# Direct file paths
 raft-inspector status --raft-db ./raft.db --vault-db ./vault.db
-raft-inspector log --raft-db ./raft.db ~10
-raft-inspector fsm --vault-db ./vault.db --prefix sys/policy/
 
 # Decryption
 raft-inspector log --data-dir /data --unseal-key-file init.json ~5
 raft-inspector fsm --vault-db ./vault.db --prefix core/ \
-    --unseal-key "cdwZpMwMDTHrygVoyrR8GtCFO5oAoT3+1v8MAD2UVrU="
+    --unseal-key "<hex or base64 unseal key>"
 ```
 
 ## How the database files work
