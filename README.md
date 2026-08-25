@@ -113,6 +113,7 @@ Integrated storage uses two database files per node:
 | Entry Count | raft/raft.db | Retained log entries (last − first + 1). Typically near `trailing_logs` config (default 10000). |
 | Last Vote Cand | raft/raft.db | Node this server last voted for in a leader election. |
 | Last Vote Term | raft/raft.db | Term in which the last vote was cast. Should be close to Current Term. |
+| Removed Self | raft/raft.db | Vault only, shown only when set. The node removed itself from the cluster and persisted the verdict. It refuses to unseal or rejoin until its raft data is wiped. |
 | Applied Index | vault.db | Last log entry applied to the FSM. Should equal or be very close to Last Log Index. |
 | Applied Term | vault.db | Term of the last applied log entry. |
 | Config Index | vault.db | Log index at which current cluster membership was committed. Changes on add/remove. |

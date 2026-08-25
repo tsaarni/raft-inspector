@@ -42,6 +42,14 @@ func cmdStatus(raftPath, vaultPath string) error {
 		value.Printf("%d\n", binary.BigEndian.Uint64(termBytes))
 	}
 
+	// Vault only: the node wrote this when it removed itself from the cluster.
+	// Set by RemoveSelf() in physical/raft/raft.go, never cleared. Absent on a
+	// healthy node and on OpenBao, which has no such mechanism.
+	if removed, err := store.Get([]byte("removed")); err == nil && len(removed) == 8 {
+		label.Printf("  %-20s", "Removed Self:")
+		value.Printf("%d\n", binary.BigEndian.Uint64(removed))
+	}
+
 	// Close raftboltdb store so we can reopen as raw bolt for stats.
 	store.Close()
 
