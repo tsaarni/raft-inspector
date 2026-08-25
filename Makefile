@@ -1,9 +1,12 @@
-.PHONY: build generate e2e clean
+.PHONY: build install generate e2e clean
 
 OPENBAO_SRC ?= $(HOME)/work/openbao
 
 build:
 	go build -o raft-inspector .
+
+install:
+	go install .
 
 generate:
 	protoc --go_out=. --go_opt=Mphysical/raft/types.proto=./ \
