@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func cmdLogList(dbPath string, sel selector, keys map[uint32][]byte, maxValueLen int) error {
+func cmdLogList(dbPath string, sels []selector, keys map[uint32][]byte, maxValueLen int) error {
 	store, tmpPath, err := openStore(dbPath)
 	if err != nil {
 		return err
@@ -24,19 +24,78 @@ func cmdLogList(dbPath string, sel selector, keys map[uint32][]byte, maxValueLen
 	first, _ := store.FirstIndex()
 	last, _ := store.LastIndex()
 
-	start, end := first, last
-	switch sel.kind {
-	case selRange:
-		start, end = sel.start, sel.end
-	case selTail:
-		if last-first+1 > sel.tail {
-			start = last - sel.tail + 1
+	// Build ordered list of indices to display from all selectors.
+	indexSet := make(map[uint64]struct{})
+	for _, sel := range sels {
+		switch sel.kind {
+		case selAll:
+			for i := first; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selIndex:
+			indexSet[sel.index] = struct{}{}
+		case selRange:
+			start, end := sel.start, sel.end
+			if start < first {
+				start = first
+			}
+			if end > last {
+				end = last
+			}
+			for i := start; i <= end; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selTail:
+			start := first
+			if last-first+1 > sel.tail {
+				start = last - sel.tail + 1
+			}
+			for i := start; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selDate:
+			// Date filtering is done below per-entry; include all candidates.
+			for i := first; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selType:
+			// Type filtering is done below per-entry; include all candidates.
+			for i := first; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
 		}
 	}
 
-	header.Printf("─── raft/raft.db logs bucket (entries %d to %d, showing %d to %d) ───\n\n", first, last, start, end)
+	// Sort indices.
+	indices := make([]uint64, 0, len(indexSet))
+	for idx := range indexSet {
+		indices = append(indices, idx)
+	}
+	sort.Slice(indices, func(i, j int) bool { return indices[i] < indices[j] })
+
+	// Determine if any selector is date-based (need per-entry filtering).
+	var hasDateFilter bool
+	var dateSels []selector
+	for _, sel := range sels {
+		if sel.kind == selDate {
+			hasDateFilter = true
+			dateSels = append(dateSels, sel)
+		}
+	}
+
+	// Determine if any selector is type-based (need per-entry filtering).
+	var hasTypeFilter bool
+	typeSet := make(map[raft.LogType]struct{})
+	for _, sel := range sels {
+		if sel.kind == selType {
+			hasTypeFilter = true
+			typeSet[sel.logType] = struct{}{}
+		}
+	}
+
+	header.Printf("─── raft/raft.db logs bucket (entries %d to %d) ───\n\n", first, last)
 	var refTime *time.Time
-	for i := start; i <= end; i++ {
+	for _, i := range indices {
 		var log raft.Log
 		if err := store.GetLog(i, &log); err != nil {
 			if errors.Is(err, raft.ErrLogNotFound) {
@@ -48,11 +107,24 @@ func cmdLogList(dbPath string, sel selector, keys map[uint32][]byte, maxValueLen
 			}
 			continue
 		}
-		if sel.kind == selDate && !log.AppendedAt.IsZero() {
-			if !sel.since.IsZero() && log.AppendedAt.Before(sel.since) {
+		// Apply date filters: entry must match at least one date selector.
+		if hasDateFilter && !log.AppendedAt.IsZero() {
+			matched := false
+			for _, ds := range dateSels {
+				if (!ds.since.IsZero() && log.AppendedAt.Before(ds.since)) ||
+					(!ds.until.IsZero() && log.AppendedAt.After(ds.until)) {
+					continue
+				}
+				matched = true
+				break
+			}
+			if !matched {
 				continue
 			}
-			if !sel.until.IsZero() && log.AppendedAt.After(sel.until) {
+		}
+		// Apply type filters: entry must match at least one type selector.
+		if hasTypeFilter {
+			if _, ok := typeSet[log.Type]; !ok {
 				continue
 			}
 		}
@@ -96,7 +168,7 @@ func cmdLogSingle(dbPath string, index uint64, keys map[uint32][]byte, maxValueL
 	return nil
 }
 
-func cmdLogStats(dbPath string, sel selector) error {
+func cmdLogStats(dbPath string, sels []selector) error {
 	store, tmpPath, err := openStore(dbPath)
 	if err != nil {
 		return err
@@ -107,13 +179,69 @@ func cmdLogStats(dbPath string, sel selector) error {
 	first, _ := store.FirstIndex()
 	last, _ := store.LastIndex()
 
-	start, end := first, last
-	switch sel.kind {
-	case selRange:
-		start, end = sel.start, sel.end
-	case selTail:
-		if last-first+1 > sel.tail {
-			start = last - sel.tail + 1
+	// Build ordered list of indices from all selectors.
+	indexSet := make(map[uint64]struct{})
+	for _, sel := range sels {
+		switch sel.kind {
+		case selAll:
+			for i := first; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selIndex:
+			indexSet[sel.index] = struct{}{}
+		case selRange:
+			start, end := sel.start, sel.end
+			if start < first {
+				start = first
+			}
+			if end > last {
+				end = last
+			}
+			for i := start; i <= end; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selTail:
+			start := first
+			if last-first+1 > sel.tail {
+				start = last - sel.tail + 1
+			}
+			for i := start; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selDate:
+			for i := first; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		case selType:
+			for i := first; i <= last; i++ {
+				indexSet[i] = struct{}{}
+			}
+		}
+	}
+
+	indices := make([]uint64, 0, len(indexSet))
+	for idx := range indexSet {
+		indices = append(indices, idx)
+	}
+	sort.Slice(indices, func(i, j int) bool { return indices[i] < indices[j] })
+
+	// Collect date selectors for per-entry filtering.
+	var hasDateFilter bool
+	var dateSels []selector
+	for _, sel := range sels {
+		if sel.kind == selDate {
+			hasDateFilter = true
+			dateSels = append(dateSels, sel)
+		}
+	}
+
+	// Collect type selectors for per-entry filtering.
+	var hasTypeFilter bool
+	typeSet := make(map[raft.LogType]struct{})
+	for _, sel := range sels {
+		if sel.kind == selType {
+			hasTypeFilter = true
+			typeSet[sel.logType] = struct{}{}
 		}
 	}
 
@@ -122,17 +250,30 @@ func cmdLogStats(dbPath string, sel selector) error {
 	var totalSize, maxSize, entryCount uint64
 	var firstTime, lastTime string
 
-	for i := start; i <= end; i++ {
+	for _, i := range indices {
 		var log raft.Log
 		if err := store.GetLog(i, &log); err != nil {
 			continue
 		}
 
-		if sel.kind == selDate && !log.AppendedAt.IsZero() {
-			if !sel.since.IsZero() && log.AppendedAt.Before(sel.since) {
+		if hasDateFilter && !log.AppendedAt.IsZero() {
+			matched := false
+			for _, ds := range dateSels {
+				if (!ds.since.IsZero() && log.AppendedAt.Before(ds.since)) ||
+					(!ds.until.IsZero() && log.AppendedAt.After(ds.until)) {
+					continue
+				}
+				matched = true
+				break
+			}
+			if !matched {
 				continue
 			}
-			if !sel.until.IsZero() && log.AppendedAt.After(sel.until) {
+		}
+
+		// Apply type filters: entry must match at least one type selector.
+		if hasTypeFilter {
+			if _, ok := typeSet[log.Type]; !ok {
 				continue
 			}
 		}

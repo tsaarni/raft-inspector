@@ -41,13 +41,20 @@ raft-inspector snapshot    Inspect an external snapshot archive
 **log:**
 
     [range]                Entry selector: N (single index), N..M (index range),
-                           ~N (last N entries), or date ranges:
+                           ~N (last N entries), date ranges, or type names.
+                           Multiple selectors can be combined with commas:
                              5                      Single entry by index
                              100..110               Index range (inclusive)
                              ~10                    Last 10 entries
                              2024-01-01..2024-01-31 Date range (inclusive)
                              2024-06-01..           From date to end of log
                              ..2024-01-31           From start of log to date
+                             5,8,10                 Multiple specific entries
+                             1..10,15..17           Multiple ranges combined
+                             LogConfiguration       Entries of a specific type
+                             LogCommand,LogNoop     Multiple types combined
+                           Type names (case-insensitive):
+                             LogCommand, LogConfiguration, LogBarrier, LogNoop
                            Dates: YYYY-MM-DD or RFC 3339 (2024-01-15T10:30:00Z)
     --stats                Show operation distribution and hot keys instead of entries
 

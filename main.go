@@ -5,103 +5,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
-	"time"
 
 	"github.com/spf13/cobra"
 )
-
-type selectorKind int
-
-const (
-	selAll   selectorKind = iota // no selector: show all
-	selIndex                     // single index
-	selRange                     // index range start..end
-	selTail                      // ~N last entries
-	selDate                      // date range since..until
-)
-
-type selector struct {
-	kind       selectorKind
-	index      uint64    // selIndex
-	start, end uint64    // selRange
-	tail       uint64    // selTail
-	since      time.Time // selDate (zero = open-ended)
-	until      time.Time // selDate (zero = open-ended)
-}
-
-func parseSelector(s string) (selector, error) {
-	if len(s) > 1 && s[0] == '~' {
-		var n uint64
-		if _, err := fmt.Sscanf(s[1:], "%d", &n); err == nil {
-			return selector{kind: selTail, tail: n}, nil
-		}
-		return selector{}, fmt.Errorf("invalid tail selector: %s", s)
-	}
-	if parts := strings.SplitN(s, "..", 2); len(parts) == 2 {
-		if looksLikeDate(parts[0]) || looksLikeDate(parts[1]) {
-			return parseDateRange(parts[0], parts[1])
-		}
-		if parts[0] == "" || parts[1] == "" {
-			return selector{}, fmt.Errorf("open-ended ranges require date format (YYYY-MM-DD): %s", s)
-		}
-		var a, b uint64
-		if _, err := fmt.Sscanf(parts[0], "%d", &a); err != nil {
-			return selector{}, fmt.Errorf("invalid range start: %s", parts[0])
-		}
-		if _, err := fmt.Sscanf(parts[1], "%d", &b); err != nil {
-			return selector{}, fmt.Errorf("invalid range end: %s", parts[1])
-		}
-		return selector{kind: selRange, start: a, end: b}, nil
-	}
-	var idx uint64
-	if _, err := fmt.Sscanf(s, "%d", &idx); err == nil {
-		return selector{kind: selIndex, index: idx}, nil
-	}
-	return selector{}, fmt.Errorf("invalid selector: %s", s)
-}
-
-func looksLikeDate(s string) bool {
-	if s == "" {
-		return false
-	}
-	// Must start with a 4-digit year to be considered a date.
-	if len(s) < 10 {
-		return false
-	}
-	return s[4] == '-' && s[7] == '-'
-}
-
-func parseDateRange(a, b string) (selector, error) {
-	var sel selector
-	sel.kind = selDate
-	if a != "" {
-		t, err := parseTime(a)
-		if err != nil {
-			return selector{}, fmt.Errorf("invalid start date: %w", err)
-		}
-		sel.since = t
-	}
-	if b != "" {
-		t, err := parseTime(b)
-		if err != nil {
-			return selector{}, fmt.Errorf("invalid end date: %w", err)
-		}
-		sel.until = t
-	}
-	return sel, nil
-}
-
-func parseTime(s string) (time.Time, error) {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t, nil
-	}
-	if t, err := time.Parse("2006-01-02", s); err == nil {
-		return t, nil
-	}
-	return time.Time{}, fmt.Errorf("cannot parse %q (expected RFC3339 or YYYY-MM-DD)", s)
-}
 
 func main() {
 	// Clean up temp files on signals.
@@ -169,7 +76,13 @@ Range argument selects which entries to display:
   2026-06-15..2026-06-16         entries within date range
   2026-06-15T10:00:00Z..         entries from date to end
   ..2026-06-16                   entries from start to date
-  (none)                         all entries`,
+  5,8,10                         multiple specific entries
+  1..10,15..17                   multiple ranges (comma-separated)
+  LogConfiguration               entries of a specific type
+  LogCommand,LogNoop             multiple types (comma-separated)
+  (none)                         all entries
+
+Type names (case-insensitive): LogCommand, LogConfiguration, LogBarrier, LogNoop`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rootKey, err := resolveRootKey(logInitFile, logUnsealKey)
@@ -258,22 +171,25 @@ func cmdLog(raftPath, vaultPath string, args []string, stats bool, rootKey []byt
 		}
 	}
 
-	var sel selector
+	var sels []selector
 	if len(args) == 1 {
 		var err error
-		sel, err = parseSelector(args[0])
+		sels, err = parseSelectors(args[0])
 		if err != nil {
 			return err
 		}
+	} else {
+		sels = []selector{{kind: selAll}}
 	}
 
 	if stats {
-		return cmdLogStats(raftPath, sel)
+		return cmdLogStats(raftPath, sels)
 	}
-	if sel.kind == selIndex {
-		return cmdLogSingle(raftPath, sel.index, keys, maxValueLen)
+	// Single index with no comma list: use detailed single-entry view.
+	if len(sels) == 1 && sels[0].kind == selIndex {
+		return cmdLogSingle(raftPath, sels[0].index, keys, maxValueLen)
 	}
-	return cmdLogList(raftPath, sel, keys, maxValueLen)
+	return cmdLogList(raftPath, sels, keys, maxValueLen)
 }
 
 func resolveRootKey(initFile, unsealKey string) ([]byte, error) {
